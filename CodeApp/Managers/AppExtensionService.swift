@@ -17,7 +17,7 @@ class AppExtensionService: NSObject {
     func startServer() {
         let BLE: AnyClass = (NSClassFromString("TlNFeHRlbnNpb24=".base64Decoded()!)!)
         let ext = Dynamic(BLE).extensionWithIdentifier(
-            "thebaselab.VS-Code.extension", error: nil)
+            "ro.attractivestar.VS-Code.extension", error: nil)
         let frameworkDir = Bundle.main.privateFrameworksPath!
         let frameworkDirBookmark = try! URL(fileURLWithPath: frameworkDir).bookmarkData()
         let pythonLibraryDirBookmark = try? FileManager().url(

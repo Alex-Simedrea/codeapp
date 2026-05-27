@@ -275,7 +275,7 @@ private func setupExtensionListener() {
             ) in
 
             let sharedURL = FileManager.default.containerURL(
-                forSecurityApplicationGroupIdentifier: "group.com.thebaselab.code")!
+                forSecurityApplicationGroupIdentifier: "group.ro.attractivestar.code")!
             let stdoutURL = sharedURL.appendingPathComponent("stdout")
 
             guard let data = try? Data(contentsOf: stdoutURL),

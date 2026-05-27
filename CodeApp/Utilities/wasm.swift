@@ -640,3 +640,62 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     //    usleep(300000) // 0.3 second
     return errorCode
 }
+
+func executeWebAssembly(command: String) -> Int32 {
+    let arguments = splitCommandLine(command)
+    guard arguments.first == "wasm" else {
+        return -1
+    }
+    return executeWebAssembly(arguments: arguments)
+}
+
+private func splitCommandLine(_ command: String) -> [String] {
+    var arguments = [String]()
+    var current = ""
+    var quote: Character?
+    var isEscaped = false
+
+    for character in command {
+        if isEscaped {
+            current.append(character)
+            isEscaped = false
+            continue
+        }
+
+        if character == "\\" {
+            isEscaped = true
+            continue
+        }
+
+        if character == "\"" || character == "'" {
+            if quote == character {
+                quote = nil
+            } else if quote == nil {
+                quote = character
+            } else {
+                current.append(character)
+            }
+            continue
+        }
+
+        if character.isWhitespace && quote == nil {
+            if !current.isEmpty {
+                arguments.append(current)
+                current = ""
+            }
+            continue
+        }
+
+        current.append(character)
+    }
+
+    if isEscaped {
+        current.append("\\")
+    }
+
+    if !current.isEmpty {
+        arguments.append(current)
+    }
+
+    return arguments
+}

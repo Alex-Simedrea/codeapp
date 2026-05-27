@@ -7,7 +7,7 @@
 
 import Foundation
 
-let sharedURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.thebaselab.code")!
+let sharedURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.ro.attractivestar.code")!
 
 class NodeLauncher {
     static let shared = NodeLauncher()
