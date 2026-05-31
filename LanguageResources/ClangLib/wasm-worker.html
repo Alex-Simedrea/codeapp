@@ -37,9 +37,13 @@
             const sab = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 8192);
             const int32 = new Int32Array(sab);
             worker.postMessage([bufferString, args, cwd, tty, env, sab]);
-            await Atomics.waitAsync(int32, 0, 0, 120000).value;
+            const waitResult = await Atomics.waitAsync(int32, 0, 0, 120000).value;
             worker.terminate();
-            return int32[0];
+            if (waitResult === "timed-out") {
+                window.webkit.messageHandlers.aShell.postMessage('print_error:wasm: execution timed out\n');
+                return -1;
+            }
+            return int32[1];
         }
     </script>
 </body>

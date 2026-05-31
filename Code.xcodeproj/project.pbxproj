@@ -654,6 +654,9 @@
 		949CDF4A2C6658DC00FFC5B1 /* LanguageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949CDF492C6658DC00FFC5B1 /* LanguageService.swift */; };
 		949CDF4B2C6658DC00FFC5B1 /* LanguageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949CDF492C6658DC00FFC5B1 /* LanguageService.swift */; };
 		949CDF4D2C6C47AD00FFC5B1 /* LSPFrameAdaptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949CDF4C2C6C47AD00FFC5B1 /* LSPFrameAdaptor.swift */; };
+		C0D3A0022F00000000000001 /* Clangd.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A0012F00000000000001 /* Clangd.swift */; };
+		C0D3A0042F00000000000001 /* clangd-lsp in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0032F00000000000001 /* clangd-lsp */; };
+		C0D3A0062F00000000000001 /* clangd.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C0D3A0052F00000000000001 /* clangd.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		949D787F2C33C4EB006D7480 /* Java.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949D787E2C33C4EB006D7480 /* Java.swift */; };
 		949D78812C33C51E006D7480 /* OutputListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949D78802C33C51E006D7480 /* OutputListener.swift */; };
 		949D78832C33C563006D7480 /* Node.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949D78822C33C563006D7480 /* Node.swift */; };
@@ -976,6 +979,17 @@
 				94369B0725E3B933008419A0 /* extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0D3A0072F00000000000001 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				C0D3A0062F00000000000001 /* clangd.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		94A77817257BC13F008FE7B2 /* Embed Frameworks */ = {
@@ -1854,6 +1868,9 @@
 		949B3CC625DEAAA600BC83B5 /* node.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = node.swift; sourceTree = "<group>"; };
 		949CDF492C6658DC00FFC5B1 /* LanguageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageService.swift; sourceTree = "<group>"; };
 		949CDF4C2C6C47AD00FFC5B1 /* LSPFrameAdaptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LSPFrameAdaptor.swift; sourceTree = "<group>"; };
+		C0D3A0012F00000000000001 /* Clangd.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clangd.swift; sourceTree = "<group>"; };
+		C0D3A0032F00000000000001 /* clangd-lsp */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "clangd-lsp"; sourceTree = "<group>"; };
+		C0D3A0052F00000000000001 /* clangd.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = "Resources/clangd-lsp/clangd.framework"; sourceTree = SOURCE_ROOT; };
 		949D787E2C33C4EB006D7480 /* Java.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Java.swift; sourceTree = "<group>"; };
 		949D78802C33C51E006D7480 /* OutputListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputListener.swift; sourceTree = "<group>"; };
 		949D78822C33C563006D7480 /* Node.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Node.swift; sourceTree = "<group>"; };
@@ -2190,6 +2207,7 @@
 				94369B1025E3DDDA008419A0 /* NodeRunner */,
 				94369AFE25E3B933008419A0 /* Media.xcassets */,
 				94369B0025E3B933008419A0 /* ActionRequestHandler.swift */,
+				C0D3A0012F00000000000001 /* Clangd.swift */,
 				940C68242C646E0400089EA3 /* System.swift */,
 				949D787E2C33C4EB006D7480 /* Java.swift */,
 				949D78822C33C563006D7480 /* Node.swift */,
@@ -2477,6 +2495,8 @@
 				94EF4FDB2C6DF80700994D9C /* monaco-textmate.bundle */,
 				94EF4FD92C6DF6A900994D9C /* python-lsp */,
 				9424437D2C6E337B00BC862F /* java-lsp */,
+				C0D3A0032F00000000000001 /* clangd-lsp */,
+				C0D3A0052F00000000000001 /* clangd.framework */,
 				945D4DFE2B4B171200DE0DBA /* Java */,
 				9469AC9926A33D19003F569F /* PHP */,
 				9469A8F426A33B1D003F569F /* NodeJS */,
@@ -3314,6 +3334,8 @@
 				94369AF825E3B933008419A0 /* Sources */,
 				94369AF925E3B933008419A0 /* Frameworks */,
 				94369AFA25E3B933008419A0 /* Resources */,
+				C0D3A0082F00000000000001 /* Remove Nested Clangd Framework Resource */,
+				C0D3A0072F00000000000001 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -3514,6 +3536,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9424437E2C6E337B00BC862F /* java-lsp in Resources */,
+				C0D3A0042F00000000000001 /* clangd-lsp in Resources */,
 				9484BDD12B46FAEE003BCB8A /* injection.js in Resources */,
 				94369AFF25E3B933008419A0 /* Media.xcassets in Resources */,
 				945D4E222B4B174400DE0DBA /* tools.jar in Resources */,
@@ -3594,6 +3617,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "export PATH=$PATH:/opt/homebrew/bin\nif command -v swift-format > /dev/null\nthen\n    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\n    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\nelse\n    echo \"warning: swift-format not installed, install it by running brew install swift-format\"\nfi\n\n";
+		};
+		C0D3A0082F00000000000001 /* Remove Nested Clangd Framework Resource */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Remove Nested Clangd Framework Resource";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "rm -rf \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/clangd-lsp/clangd.framework\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -3784,6 +3826,7 @@
 				940C68262C64704C00089EA3 /* String+toCString.swift in Sources */,
 				947313142BDFB80D004A9960 /* ExtensionCommunicationHelper.swift in Sources */,
 				94369B1325E3DE02008419A0 /* NodeRunner.mm in Sources */,
+				C0D3A0022F00000000000001 /* Clangd.swift in Sources */,
 				940C68252C646E0400089EA3 /* System.swift in Sources */,
 				949D78832C33C563006D7480 /* Node.swift in Sources */,
 				949CDF4D2C6C47AD00FFC5B1 /* LSPFrameAdaptor.swift in Sources */,

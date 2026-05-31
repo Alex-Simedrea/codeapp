@@ -402,7 +402,9 @@ class MainApp: ObservableObject {
                         string: "ws://127.0.0.1:\(String(AppExtensionService.PORT))/websocket")!,
                     serverArgs: languageServiceConfiguration.args,
                     pwd: currentDirectoryURL,
-                    languageIdentifier: languageServiceConfiguration.languageIdentifier
+                    languageIdentifier: languageServiceConfiguration.languageIdentifier,
+                    documentSelector: languageServiceConfiguration.documentSelector,
+                    initializationOptions: languageServiceConfiguration.initializationOptions
                 )
             }
         }

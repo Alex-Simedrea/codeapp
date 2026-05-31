@@ -15,18 +15,26 @@ public func wasm(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<In
 }
 
 class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKUIDelegate {
+    private func fileDescriptor(for stream: UnsafeMutablePointer<FILE>?) -> Int32? {
+        guard let stream else {
+            return nil
+        }
+        let fd = fileno(stream)
+        return fd >= 0 ? fd : nil
+    }
+
     func fileDescriptor(input: String) -> Int32? {
         guard let fd = Int32(input) else {
             return nil
         }
         if fd == 0 {
-            return fileno(thread_stdin_copy)
+            return fileDescriptor(for: thread_stdin_copy)
         }
         if fd == 1 {
-            return fileno(thread_stdout_copy)
+            return fileDescriptor(for: thread_stdout_copy)
         }
         if fd == 2 {
-            return fileno(thread_stderr_copy)
+            return fileDescriptor(for: thread_stderr_copy)
         }
         return fd
     }
@@ -43,14 +51,14 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
             // print result of JS file:
             var string = cmd
             string.removeFirst("print:".count)
-            if thread_stdout_copy != nil {
+            if let thread_stdout_copy {
                 fputs(string, thread_stdout_copy)
             }
         } else if cmd.hasPrefix("print_error:") {
             // print result of JS file:
             var string = cmd
             string.removeFirst("print_error:".count)
-            if thread_stderr_copy != nil {
+            if let thread_stderr_copy {
                 fputs(string, thread_stderr_copy)
             }
         } else {
@@ -69,12 +77,20 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
 
         let arguments = prompt.components(separatedBy: "\n")
         // NSLog("prompt: \(prompt)")
+        guard arguments.count >= 2 else {
+            completionHandler("\(-EINVAL)")
+            return
+        }
         let title = arguments[0]
         if title == "libc" {
             // Make sure we are on the right iOS session. This resets the current working directory.
             ios_switchSession("wasm")
             ios_setContext(UnsafeMutableRawPointer(mutating: "wasm".toCString()))
             if arguments[1] == "open" {
+                guard arguments.count >= 4 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 let rights = Int32(arguments[3]) ?? 577
                 if !FileManager().fileExists(atPath: arguments[2]) && (rights > 0) {
                     // The file doesn't exist *and* we will want to write into it. First, we create it:
@@ -94,11 +110,18 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "close" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 var returnValue: Int32 = -1
                 if let fd = fileDescriptor(input: arguments[2]) {
-                    if (fd == fileno(thread_stdin_copy)) || (fd == fileno(thread_stdout_copy))
-                        || (fd == fileno(thread_stdout_copy))
-                    {
+                    let standardFileDescriptors = [
+                        fileDescriptor(for: thread_stdin_copy),
+                        fileDescriptor(for: thread_stdout_copy),
+                        fileDescriptor(for: thread_stderr_copy),
+                    ].compactMap { $0 }
+                    if standardFileDescriptors.contains(fd) {
                         // don't close stdin/stdout/stderr
                         returnValue = 0
                     } else {
@@ -115,6 +138,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 completionHandler("\(-EBADF)")  // invalid file descriptor
                 return
             } else if arguments[1] == "write" {
+                guard arguments.count >= 6 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 var returnValue = Int(-EBADF)  // Number of bytes written
                 if let fd = fileDescriptor(input: arguments[2]) {
                     // arguments[3] == "84,104,105,115,32,116,101,120,116,32,103,111,101,115,32,116,111,32,115,116,100,111,117,116,10"
@@ -125,7 +152,7 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                     if (arguments.count >= 6) && (arguments[3].count > 0) {
                         let values = arguments[3].components(separatedBy: ",")
                         var data = Data.init()
-                        if let numValues = Int(arguments[4]) {
+                        if let numValues = Int(arguments[4]), values.count >= numValues {
                             if numValues > 0 {
                                 let offset = UInt64(arguments[5]) ?? 0
                                 for c in 0...numValues - 1 {
@@ -134,7 +161,7 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                                     }
                                 }
                                 // let returnValue = write(fd, data, numValues)
-                                let file = FileHandle(fileDescriptor: fd)
+                                let file = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
                                 if offset > 0 {
                                     do {
                                         try file.seek(toOffset: offset)
@@ -153,6 +180,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 completionHandler("\(returnValue)")
                 return
             } else if arguments[1] == "read" {
+                guard arguments.count >= 6 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 var data: Data?
                 if let fd = fileDescriptor(input: arguments[2]) {
                     // arguments[3] = length
@@ -161,9 +192,11 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                     // let values = arguments[3].components(separatedBy:",")
                     if let numValues = Int(arguments[3]) {
                         let offset = UInt64(arguments[4]) ?? 0
-                        let file = FileHandle(fileDescriptor: fd)
+                        let file = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
                         let isTTY = Int(arguments[5]) ?? 0
-                        if (fd == fileno(thread_stdin_copy)) && (isTTY != 0) {
+                        if let stdinFileDescriptor = fileDescriptor(for: thread_stdin_copy),
+                            fd == stdinFileDescriptor && isTTY != 0
+                        {
                             // Reading from stdin is delicate, we must avoid blocking the UI.
                             var inputString = stdinString
                             if inputString.count > numValues {
@@ -207,6 +240,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "fstat" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 if let fd = fileDescriptor(input: arguments[2]) {
                     let buf = stat.init()
                     let pbuf = UnsafeMutablePointer<stat>.allocate(capacity: 1)
@@ -223,6 +260,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 completionHandler("\(-EBADF)")  // Invalid file descriptor
                 return
             } else if arguments[1] == "stat" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 let buf = stat.init()
                 let pbuf = UnsafeMutablePointer<stat>.allocate(capacity: 1)
                 pbuf.initialize(to: buf)
@@ -235,6 +276,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "readdir" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 do {
                     // Much more compact code than using readdir.
                     let items = try FileManager().contentsOfDirectory(atPath: arguments[2])
@@ -249,6 +294,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "mkdir" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 do {
                     try FileManager().createDirectory(
                         atPath: arguments[2], withIntermediateDirectories: true)
@@ -259,6 +308,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "rmdir" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 do {
                     try FileManager().removeItem(atPath: arguments[2])
                     completionHandler("0")
@@ -268,6 +321,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "rename" {
+                guard arguments.count >= 4 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 do {
                     try FileManager().moveItem(atPath: arguments[2], toPath: arguments[3])
                     completionHandler("0")
@@ -277,6 +334,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "link" {
+                guard arguments.count >= 4 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 do {
                     try FileManager().linkItem(atPath: arguments[2], toPath: arguments[3])
                     completionHandler("0")
@@ -286,6 +347,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "symlink" {
+                guard arguments.count >= 4 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 do {
                     try FileManager().createSymbolicLink(
                         atPath: arguments[3], withDestinationPath: arguments[2])
@@ -296,6 +361,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "readlink" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 do {
                     let destination = try FileManager().destinationOfSymbolicLink(
                         atPath: arguments[2])
@@ -308,6 +377,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "unlink" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 let returnVal = unlink(arguments[2])
                 if returnVal != 0 {
                     completionHandler("\(-errno)")
@@ -317,6 +390,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "fsync" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 if let fd = fileDescriptor(input: arguments[2]) {
                     let returnVal = fsync(fd)
                     if returnVal != 0 {
@@ -330,6 +407,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 completionHandler("\(-EBADF)")  // invalid file descriptor
                 return
             } else if arguments[1] == "ftruncate" {
+                guard arguments.count >= 4 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 if let fd = fileDescriptor(input: arguments[2]) {
                     if let length = Int64(arguments[3]) {
                         let returnVal = ftruncate(fd, length)
@@ -355,10 +436,18 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 completionHandler(result)
                 return
             } else if arguments[1] == "chdir" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 // true or false
                 completionHandler("\(FileManager.default.changeCurrentDirectoryPath(arguments[2]))")
                 return
             } else if arguments[1] == "fchdir" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 if let fd = Int32(arguments[2]) {
                     let result = fchdir(fd)
                     if result != 0 {
@@ -372,15 +461,23 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "system" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 thread_stdin = thread_stdin_copy
                 thread_stdout = thread_stdout_copy
-                thread_stderr = thread_stdout_copy
+                thread_stderr = thread_stderr_copy
                 let pid = ios_fork()
                 let result = ios_system(arguments[2])
                 ios_waitpid(pid)
                 completionHandler("\(result)")
                 return
             } else if arguments[1] == "getenv" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 let result = ios_getenv(arguments[2])
                 if result != nil {
                     completionHandler(String(cString: result!))
@@ -389,8 +486,15 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "setenv" {
-                let force = Int32(arguments[4])
-                let result = setenv(arguments[2], arguments[3], force!)
+                guard arguments.count >= 5 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
+                guard let force = Int32(arguments[4]) else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
+                let result = setenv(arguments[2], arguments[3], force)
                 if result != 0 {
                     completionHandler("\(-errno)")
                     errno = 0
@@ -399,6 +503,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "unsetenv" {
+                guard arguments.count >= 3 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 let result = unsetenv(arguments[2])
                 if result != 0 {
                     completionHandler("\(-errno)")
@@ -408,6 +516,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                 }
                 return
             } else if arguments[1] == "utimes" {
+                guard arguments.count >= 7 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 let path = arguments[2]
                 if let atime_sec = Int(arguments[3]) {
                     var atime_usec = Int32(arguments[4])
@@ -447,6 +559,10 @@ class wasmWebViewDelegate: NSObject, WKNavigationDelegate, WKScriptMessageHandle
                     return
                 }
             } else if arguments[1] == "futimes" {
+                guard arguments.count >= 7 else {
+                    completionHandler("\(-EINVAL)")
+                    return
+                }
                 if let fd = fileDescriptor(input: arguments[2]) {
                     if let atime_sec = Int(arguments[3]) {
                         var atime_usec = Int32(arguments[4])
@@ -547,9 +663,15 @@ private var thread_stderr_copy: UnsafeMutablePointer<FILE>? = nil
 private var stdout_active = false
 var stdinString: String = ""
 
-private func executeWebAssembly(arguments: [String]?) -> Int32 {
+private func executeWebAssembly(
+    arguments: [String]?,
+    standardInput: UnsafeMutablePointer<FILE>? = nil,
+    standardOutput: UnsafeMutablePointer<FILE>? = nil,
+    standardError: UnsafeMutablePointer<FILE>? = nil
+) -> Int32 {
     guard arguments != nil else { return -1 }
     guard arguments!.count >= 2 else { return -1 }  // There must be at least one command
+    let errorStream = standardError ?? thread_stderr ?? stderr
     // copy arguments:
     let command = arguments![1]
     var argumentString = "["
@@ -567,7 +689,7 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     let currentDirectory = FileManager().currentDirectoryPath
     let fileName = command.hasPrefix("/") ? command : currentDirectory + "/" + command
     guard let buffer = NSData(contentsOf: URL(fileURLWithPath: fileName)) else {
-        fputs("wasm: file \(command) not found\n", thread_stderr)
+        fputs("wasm: file \(command) not found\n", errorStream)
         return -1
     }
     let localEnvironment = environmentAsArray()
@@ -598,33 +720,60 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
         + "\", \(ios_isatty(STDIN_FILENO)), " + environmentAsJSDictionary + ")"
     if javascriptRunning {
         fputs(
-            "We can't execute webAssembly while we are already executing webAssembly.",
-            thread_stderr)
+            "wasm: execution already in progress\n",
+            errorStream)
+        return -1
+    }
+    guard let activeStdin = standardInput ?? thread_stdin,
+        let activeStdout = standardOutput ?? thread_stdout,
+        let activeStderr = standardError ?? thread_stderr
+    else {
+        fputs("wasm: standard streams unavailable\n", errorStream)
         return -1
     }
     javascriptRunning = true
     var errorCode: Int32 = 0
-    thread_stdin_copy = thread_stdin
-    thread_stdout_copy = thread_stdout
-    thread_stderr_copy = thread_stderr
+    thread_stdin_copy = activeStdin
+    thread_stdout_copy = activeStdout
+    thread_stderr_copy = activeStderr
     DispatchQueue.main.async {
         wasmWebView.callAsyncJavaScript(javascript, arguments: [:], in: nil, in: .page) {
             result in
-            let result = try? result.get()
+            let evaluatedResult: Any?
+            do {
+                evaluatedResult = try result.get()
+            } catch {
+                errorCode = -1
+                if let thread_stderr_copy {
+                    fputs(
+                        "wasm: JavaScript execution failed: \(error.localizedDescription)\n",
+                        thread_stderr_copy)
+                }
+                javascriptRunning = false
+                return
+            }
 
-            if result != nil {
+            if evaluatedResult != nil {
                 // executeWebAssembly sends back stdout and stderr as two Strings:
-                if let array = result! as? NSMutableArray {
+                if let array = evaluatedResult! as? NSMutableArray {
                     if let code = array[0] as? Int32 {
                         // return value from program
                         errorCode = code
                     }
                     if let errorMessage = array[1] as? String {
                         // webAssembly compile error:
-                        fputs(errorMessage, thread_stderr_copy)
+                        if let thread_stderr_copy {
+                            fputs(errorMessage, thread_stderr_copy)
+                        }
                     }
-                } else if let string = result! as? String {
-                    fputs(string, thread_stdout_copy)
+                } else if let code = evaluatedResult as? Int32 {
+                    errorCode = code
+                } else if let code = evaluatedResult as? Int {
+                    errorCode = Int32(code)
+                } else if let string = evaluatedResult! as? String {
+                    if let thread_stdout_copy {
+                        fputs(string, thread_stdout_copy)
+                    }
                 }
             }
             javascriptRunning = false
@@ -632,21 +781,39 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     }
     // force synchronization:
     while javascriptRunning {
-        if thread_stdout != nil { fflush(thread_stdout) }
-        if thread_stderr != nil { fflush(thread_stderr) }
-        //        usleep(300000)
+        fflush(activeStdout)
+        fflush(activeStderr)
+        usleep(1000)
     }
-    fputs("\n", thread_stdout_copy)
+    if let thread_stdout_copy {
+        fputs("\n", thread_stdout_copy)
+        fflush(thread_stdout_copy)
+    }
+    if let thread_stderr_copy {
+        fflush(thread_stderr_copy)
+    }
+    thread_stdin_copy = nil
+    thread_stdout_copy = nil
+    thread_stderr_copy = nil
     //    usleep(300000) // 0.3 second
     return errorCode
 }
 
-func executeWebAssembly(command: String) -> Int32 {
+func executeWebAssembly(
+    command: String,
+    standardInput: UnsafeMutablePointer<FILE>? = nil,
+    standardOutput: UnsafeMutablePointer<FILE>? = nil,
+    standardError: UnsafeMutablePointer<FILE>? = nil
+) -> Int32 {
     let arguments = splitCommandLine(command)
     guard arguments.first == "wasm" else {
         return -1
     }
-    return executeWebAssembly(arguments: arguments)
+    return executeWebAssembly(
+        arguments: arguments,
+        standardInput: standardInput,
+        standardOutput: standardOutput,
+        standardError: standardError)
 }
 
 private func splitCommandLine(_ command: String) -> [String] {

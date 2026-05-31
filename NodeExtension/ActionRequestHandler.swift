@@ -88,10 +88,13 @@ class BinaryExecutor {
             FileManager.default.changeCurrentDirectoryPath(workingDirectory.path)
             
             self.listener.openConsolePipe()
-            self.listener.onStdout = { text in
+            self.listener.onStdoutData = { data in
                 if self.needFrameAdaptor {
-                    self.frameAdaptor.receiveStdout(data: text)
-                }else {
+                    self.frameAdaptor.receiveStdout(data: data)
+                }
+            }
+            self.listener.onStdout = { text in
+                if !self.needFrameAdaptor {
                     DispatchQueue.global(qos: .utility).async {
                         ws.send(text)
                     }
@@ -107,6 +110,11 @@ class BinaryExecutor {
         
         DispatchQueue.global(qos: isLanguageService ? .utility : .default).async {
             switch executable {
+            case "clangd":
+                let status = ClangdLauncher.shared.launchClangd(args: args)
+                if status != 0 {
+                    fputs("clangd exited with status \(status)\n", stderr)
+                }
             case "java", "javac":
                 JavaLauncher.shared.launchJava(args: args, frameworkDirectory: sharedFrameworksDirectory, currentDirectory: workingDirectory)
             case "node":
@@ -172,7 +180,10 @@ class ActionRequestHandler: NSObject, NSExtensionRequestHandling {
                    binaryExecutor.writeToStdin(data: message.data)
                 }else {
                     let jsonData = message.data.data(using: .utf8)!
-                    guard let request: ExecutionRequestFrame = try? JSONDecoder().decode(ExecutionRequestFrame.self, from: jsonData) else {
+                    let request: ExecutionRequestFrame
+                    do {
+                        request = try JSONDecoder().decode(ExecutionRequestFrame.self, from: jsonData)
+                    } catch {
                         ws.send("malformed message")
                         return
                     }

@@ -128,7 +128,11 @@ prompt = (p) => {
 onmessage = (e) => {
     const int32 = new Int32Array(e.data[5]);
 
-    executeWebAssembly(e.data[0], e.data[1], e.data[2], e.data[3], e.data[4]);
+    const result = executeWebAssembly(e.data[0], e.data[1], e.data[2], e.data[3], e.data[4]);
+    Atomics.store(int32, 1, result[0] || 0);
+    if (result[1]) {
+        print_error(result[1]);
+    }
 
     // Finishing execution
     Atomics.store(int32, 0, 1);

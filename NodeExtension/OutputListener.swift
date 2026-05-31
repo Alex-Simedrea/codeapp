@@ -20,12 +20,15 @@ class OutputListener {
     
     public var onStdout: ((String) -> Void)? = nil
     public var onStderr: ((String) -> Void)? = nil
+    public var onStdoutData: ((Data) -> Void)? = nil
+    public var onStderrData: ((Data) -> Void)? = nil
     
     init() {
         // Set up a read handler which fires when data is written to our inputPipe
         inputPipe.fileHandleForReading.readabilityHandler = { [weak self] fileHandle in            
             guard let strongSelf = self else { return }
             let availableData = fileHandle.availableData
+            strongSelf.onStdoutData?(availableData)
             if let str = String(data: availableData, encoding: String.Encoding.utf8) {
                 strongSelf.onStdout?(str)
             }
@@ -36,6 +39,7 @@ class OutputListener {
         inputErrorPipe.fileHandleForReading.readabilityHandler = { [weak self] fileHandle in
             guard let strongSelf = self else { return }
             let availableData = fileHandle.availableData
+            strongSelf.onStderrData?(availableData)
             if let str = String(data: availableData, encoding: String.Encoding.utf8) {
                 strongSelf.onStderr?(str)
             }
@@ -71,9 +75,14 @@ class OutputListener {
     public func closeConsolePipe() {
         // Restore stdout
         freopen("/dev/stdout", "a", stdout)
-        freopen("/dev/stderr", "a", stdout)
-        
-        [inputPipe.fileHandleForReading, outputPipe.fileHandleForWriting].forEach { file in
+        freopen("/dev/stderr", "a", stderr)
+
+        [
+            inputPipe.fileHandleForReading,
+            outputPipe.fileHandleForWriting,
+            inputErrorPipe.fileHandleForReading,
+            outputErrorPipe.fileHandleForWriting,
+        ].forEach { file in
             file.closeFile()
         }
     }

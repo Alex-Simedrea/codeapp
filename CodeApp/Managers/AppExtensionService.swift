@@ -96,7 +96,6 @@ class AppExtensionService: NSObject {
             if let str = String(data: fileHandle.availableData, encoding: .utf8) {
                 Task {
                     try await task.send(.string(str))
-                    print("Sending -> \(str)")
                 }
             }
         }
@@ -112,12 +111,9 @@ class AppExtensionService: NSObject {
 
         try await task.send(.string(frame.stringRepresentation))
 
-        print("Sending -> \(frame.stringRepresentation)")
-
         while let message = try? await task.receive() {
             switch message {
             case .string(let text):
-                print("Receiving <- \(text)")
                 fputs(text, t_stdout)
             default:
                 continue

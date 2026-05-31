@@ -88,10 +88,26 @@ rm -f python-lsp.zip
 curl -OL https://github.com/thebaselab/codeapp-monaco/releases/download/2025.9.20/monaco-textmate.bundle.zip
 unzip -q monaco-textmate.bundle.zip
 rm -f monaco-textmate.bundle.zip
+../scripts/patch-monaco-language-client.sh monaco-textmate.bundle/assets/index-CAlTf3CB.js
 
 # Java LSP
 curl -OL https://github.com/thebaselab/codeapp-java/releases/download/2024.8.16/java-lsp.zip
 unzip -q java-lsp.zip
 rm -f java-lsp.zip
+
+# Clangd LSP
+if [ -n "$CLANGD_LSP_URL" ]; then
+  rm -rf clangd-lsp
+  curl -L "$CLANGD_LSP_URL" -o clangd-lsp.zip
+  unzip -q clangd-lsp.zip
+  rm -f clangd-lsp.zip
+elif [ "${SKIP_CLANGD_LSP_BUILD:-0}" = "1" ]; then
+  mkdir -p clangd-lsp
+  echo "Skipping clangd-lsp build. Unset SKIP_CLANGD_LSP_BUILD to build it from source."
+else
+  cd ..
+  ./scripts/build-clangd-lsp.sh
+  cd Resources
+fi
 
 echo "Done!"

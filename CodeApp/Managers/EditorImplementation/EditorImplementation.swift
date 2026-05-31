@@ -141,7 +141,12 @@ protocol EditorImplementation: AnyObject {
 
     // Intellisense operations
     func connectLanguageService(
-        serverURL: URL, serverArgs: [String], pwd: URL, languageIdentifier: String)
+        serverURL: URL,
+        serverArgs: [String],
+        pwd: URL,
+        languageIdentifier: String,
+        documentSelector: [String],
+        initializationOptions: [String: Any])
     func disconnectLanguageService()
     var isLanguageServiceConnected: Bool { get async }
 

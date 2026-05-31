@@ -30,6 +30,10 @@ class Resources {
     static let pythonLSP = "\(Resources.getMainAppBundle().resourcePath!)/python-lsp"
     
     static let javaLSP = "\(Bundle.main.resourcePath!)/java-lsp/fat-jar.jar"
+
+    static let clangdLSP = "\(Bundle.main.resourcePath!)/clangd-lsp"
+
+    static let clangdResourceDir = "\(Resources.clangdLSP)/lib/clang/14.0.0"
 }
 
 

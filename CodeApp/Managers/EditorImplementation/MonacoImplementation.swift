@@ -15,6 +15,7 @@ class EditorService {
     private let webServer = GCDWebServer()
 
     init() {
+        GCDWebServer.setLogLevel(3)
         let basePath = "/"
         let directoryPath =
             Bundle.main.path(forResource: "monaco-textmate", ofType: "bundle")! + "/"
@@ -260,6 +261,8 @@ extension MonacoImplementation: WKScriptMessageHandler {
         case "Language Server Connection Dropped":
             let languageIdentifier = result["languageIdentifier"] as! String
             delegate?.editorImplementation(languageServerDidDisconnect: languageIdentifier)
+        case "Language Server Debug":
+            break
         default:
             print("[MonacoImplementation]: Event '\(event)' not handled.")
         }
@@ -459,25 +462,49 @@ extension MonacoImplementation: EditorImplementation {
     }
 
     func connectLanguageService(
-        serverURL: URL, serverArgs: [String], pwd: URL, languageIdentifier: String
+        serverURL: URL,
+        serverArgs: [String],
+        pwd: URL,
+        languageIdentifier: String,
+        documentSelector: [String],
+        initializationOptions: [String: Any]
     ) {
         guard let pwdBookmark = try? pwd.bookmarkData(),
-            let encodedPwd = pwd.absoluteString.base64Encoded()
+            let encodedPwd = pwd.absoluteString.base64Encoded(),
+            let serverArgsJSON = Self.jsonLiteral(serverArgs),
+            let documentSelectorJSON = Self.jsonLiteral(documentSelector),
+            let initializationOptionsJSON = Self.jsonLiteral(initializationOptions)
         else {
             return
         }
         Task {
-            try? await monacoWebView.evaluateJavaScriptAsync(
-                """
-                connectMonacoToLanguageServer(
-                    "\(serverURL.absoluteString)",
-                    \(serverArgs),
-                    "\(encodedPwd)",
-                    "\(pwdBookmark.base64EncodedString())",
-                    "\(languageIdentifier)"
-                )
-                """)
+            do {
+                try await monacoWebView.evaluateJavaScriptAsync(
+                    """
+                    void connectMonacoToLanguageServer(
+                        "\(serverURL.absoluteString)",
+                        \(serverArgsJSON),
+                        "\(encodedPwd)",
+                        "\(pwdBookmark.base64EncodedString())",
+                        "\(languageIdentifier)",
+                        \(documentSelectorJSON),
+                        \(initializationOptionsJSON)
+                    )
+                    """)
+            } catch {
+                NSLog("%@", "Monaco language client invocation failed: \(error)")
+            }
         }
+    }
+
+    private static func jsonLiteral(_ value: Any) -> String? {
+        guard JSONSerialization.isValidJSONObject(value),
+            let data = try? JSONSerialization.data(withJSONObject: value),
+            let string = String(data: data, encoding: .utf8)
+        else {
+            return nil
+        }
+        return string
     }
 
     func disconnectLanguageService() {

@@ -124,18 +124,25 @@ class Executor {
     }
 
     private func _onStdout(data: Data) {
-        let str = String(decoding: data, as: UTF8.self)
-
-        if str.contains(END_OF_TRANSMISSION) {
+        let endOfTransmissionData = Data(END_OF_TRANSMISSION.utf8)
+        let outputData: Data
+        if let endRange = data.range(of: endOfTransmissionData) {
             stdout_active = false
+            outputData = data.subdata(in: data.startIndex..<endRange.lowerBound)
+        } else {
+            outputData = data
+        }
+
+        if outputData.isEmpty {
             return
         }
 
+        let str = String(decoding: outputData, as: UTF8.self)
         DispatchQueue.main.async {
             if self.state == .running {
                 // Interactive Commands /with control characters
                 if str.contains("\u{8}") || str.contains("\u{13}") || str.contains("\r") {
-                    self.receivedStdout(data)
+                    self.receivedStdout(outputData)
                     return
                 }
                 self.requestInput(str)
@@ -143,7 +150,7 @@ class Executor {
                     self.prompt = prom
                 }
             } else {
-                self.receivedStdout(data)
+                self.receivedStdout(outputData)
             }
         }
     }
@@ -194,17 +201,11 @@ class Executor {
         }
         stdout_pipe.fileHandleForReading.readabilityHandler = self.onStdout
 
-        stdout_active = true
-
         let queue = DispatchQueue(label: "\(command)", qos: .utility)
+        stdout_active = true
+        state = isInteractive ? .interactive : .running
 
         queue.async {
-            if isInteractive {
-                self.state = .interactive
-            } else {
-                self.state = .running
-            }
-
             self.lastCommand = command
             Thread.current.name = command
 
@@ -222,9 +223,14 @@ class Executor {
             let writeOpen = fcntl(stdout_pipe.fileHandleForWriting.fileDescriptor, F_GETFD)
             if writeOpen >= 0 {
                 // Pipe is still open, send information to close it, once all output has been processed.
+                if let stdoutFile = self.stdout_file {
+                    fflush(stdoutFile)
+                }
                 stdout_pipe.fileHandleForWriting.write(self.END_OF_TRANSMISSION.data(using: .utf8)!)
                 while self.stdout_active {
-                    fflush(thread_stdout)
+                    if let stdoutFile = self.stdout_file {
+                        fflush(stdoutFile)
+                    }
                 }
             }
 
@@ -260,7 +266,11 @@ class Executor {
         NSLog("Running command: \(command)")
 
         if command == "wasm" || command.hasPrefix("wasm ") {
-            return executeWebAssembly(command: command)
+            return executeWebAssembly(
+                command: command,
+                standardInput: stdin_file,
+                standardOutput: stdout_file,
+                standardError: stdout_file)
         }
 
         // ios_system requires these to be set to nil before command execution

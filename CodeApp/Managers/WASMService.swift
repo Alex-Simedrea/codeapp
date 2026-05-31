@@ -12,6 +12,7 @@ class WASMService {
     private let webServer = GCDWebServer()
 
     init() {
+        GCDWebServer.setLogLevel(3)
         let basePath = "/"
         let directoryPath = Resources.wasmHTML.deletingLastPathComponent().path + "/"
         webServer.addHandler(
