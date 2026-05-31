@@ -136,7 +136,7 @@ struct SettingsView: View {
                                 onFontPick: { descriptor in
                                     CTFontManagerRequestFonts([descriptor] as CFArray) { _ in
                                         editorOptions.value.fontFamily =
-                                            descriptor.object(forKey: .family) as! String
+                                            CodeFont.fontFamilyName(from: descriptor)
                                     }
                                 }
                             ).toolbar {
@@ -254,7 +254,7 @@ struct SettingsView: View {
                                 onFontPick: { descriptor in
                                     CTFontManagerRequestFonts([descriptor] as CFArray) { _ in
                                         terminalOptions.value.fontFamily =
-                                            descriptor.object(forKey: .family) as! String
+                                            CodeFont.fontFamilyName(from: descriptor)
                                     }
                                 }
                             ).toolbar {

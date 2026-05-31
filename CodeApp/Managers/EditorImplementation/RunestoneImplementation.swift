@@ -342,7 +342,7 @@ class RunestoneImplementation: NSObject {
         self.runeStoneTheme = DynamicTheme(
             light: theme.light != nil ? RunestoneTheme(vsTheme: theme.light!) : DefaultTheme(),
             dark: theme.dark != nil ? RunestoneTheme(vsTheme: theme.dark!) : DefaultTheme(),
-            font: UIFont(name: options.fontFamily, size: CGFloat(options.fontSize))
+            font: CodeFont.font(named: options.fontFamily, size: CGFloat(options.fontSize))
                 ?? DefaultTheme().font
         )
 
@@ -374,7 +374,8 @@ class RunestoneImplementation: NSObject {
 
     func configureTextViewForOptions(options: EditorOptions) {
         runeStoneTheme.editorFont =
-            UIFont(name: options.fontFamily, size: CGFloat(options.fontSize)) ?? DefaultTheme().font
+            CodeFont.font(named: options.fontFamily, size: CGFloat(options.fontSize))
+            ?? DefaultTheme().font
         textView.isEditable = !options.readOnly
         textView.showLineNumbers = options.lineNumbersEnabled
         textView.isLineWrappingEnabled = !(options.wordWrap == .off)

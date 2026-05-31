@@ -12,7 +12,9 @@ private var ToolbarHandle: UInt8 = 0
 class SchemeHandler: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
         let url = urlSchemeTask.request.url!
-        let mimeType = "text/\(url.pathExtension)"
+        let fontExtension =
+            url.absoluteString.components(separatedBy: ".").last?.lowercased() ?? "ttf"
+        let mimeType = fontExtension == "otf" ? "font/otf" : "font/ttf"
         let response = URLResponse(
             url: url, mimeType: mimeType, expectedContentLength: -1, textEncodingName: nil)
         urlSchemeTask.didReceive(response)
@@ -21,11 +23,8 @@ class SchemeHandler: NSObject, WKURLSchemeHandler {
             separatedBy: "."
         ).first?.removingPercentEncoding
 
-        if let fontName,
-            let font = UIFont(name: fontName, size: 12),
-            let ttfData = UIFont.data(from: font)
-        {
-            urlSchemeTask.didReceive(ttfData)
+        if let fontName, let fontData = CodeFont.fontData(named: fontName) {
+            urlSchemeTask.didReceive(fontData)
         }
         urlSchemeTask.didFinish()
     }

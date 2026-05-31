@@ -46,6 +46,7 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>FiraCode-Regular.ttf</string>
+		<string>SF-Mono-Regular.otf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

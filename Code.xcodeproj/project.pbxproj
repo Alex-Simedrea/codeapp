@@ -791,6 +791,8 @@
 		94F6B511280EFD07000DBAE2 /* FileDisplayName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F6B50F280EFD07000DBAE2 /* FileDisplayName.swift */; };
 		94F88FDB2C628AA800326AD0 /* FiraCode-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 94F88FDA2C628AA800326AD0 /* FiraCode-Regular.ttf */; };
 		94F88FDD2C628AB200326AD0 /* FiraCode-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 94F88FDC2C628AB200326AD0 /* FiraCode-Regular.ttf */; };
+		C0D3A0102F00000000000001 /* SF-Mono-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0122F00000000000001 /* SF-Mono-Regular.otf */; };
+		C0D3A0112F00000000000001 /* SF-Mono-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0122F00000000000001 /* SF-Mono-Regular.otf */; };
 		94FA8977292FB86700163800 /* PDFViewerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FA8975292FB86700163800 /* PDFViewerExtension.swift */; };
 		94FA8978292FB86700163800 /* PDFViewerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FA8975292FB86700163800 /* PDFViewerExtension.swift */; };
 		94FC220B257F7D2A00B85D1B /* SourceControlEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FC220A257F7D2900B85D1B /* SourceControlEntry.swift */; };
@@ -898,6 +900,8 @@
 		9FD5BCED292495DF00F20C4B /* DefaultUIState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD5BCEB292495DF00F20C4B /* DefaultUIState.swift */; };
 		9FD5BCEF29249F0200F20C4B /* WebViewBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD5BCEE29249F0200F20C4B /* WebViewBase.swift */; };
 		9FD5BCF029249F0200F20C4B /* WebViewBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD5BCEE29249F0200F20C4B /* WebViewBase.swift */; };
+		C0D3A00A2F00000000000001 /* CodeFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A0092F00000000000001 /* CodeFont.swift */; };
+		C0D3A00B2F00000000000001 /* CodeFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3A0092F00000000000001 /* CodeFont.swift */; };
 		9FD5BCF42927859600F20C4B /* DebugMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD5BCF32927859600F20C4B /* DebugMenu.swift */; };
 		9FD5BCF52927859600F20C4B /* DebugMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD5BCF32927859600F20C4B /* DebugMenu.swift */; };
 		9FD5BCFB2928E02300F20C4B /* LocalExecutionExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD5BCFA2928E02300F20C4B /* LocalExecutionExtension.swift */; };
@@ -1981,6 +1985,7 @@
 		94F6B50F280EFD07000DBAE2 /* FileDisplayName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDisplayName.swift; sourceTree = "<group>"; };
 		94F88FDA2C628AA800326AD0 /* FiraCode-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "FiraCode-Regular.ttf"; path = "Fonts/FiraCode-Regular.ttf"; sourceTree = "<group>"; };
 		94F88FDC2C628AB200326AD0 /* FiraCode-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "FiraCode-Regular.ttf"; path = "Fonts/FiraCode-Regular.ttf"; sourceTree = "<group>"; };
+		C0D3A0122F00000000000001 /* SF-Mono-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "SF-Mono-Regular.otf"; path = "Fonts/SF-Mono-Regular.otf"; sourceTree = "<group>"; };
 		94FA8975292FB86700163800 /* PDFViewerExtension.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PDFViewerExtension.swift; sourceTree = "<group>"; };
 		94FC220A257F7D2900B85D1B /* SourceControlEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceControlEntry.swift; sourceTree = "<group>"; };
 		94FD17032BAED290003E1545 /* RunestoneImplementation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunestoneImplementation.swift; sourceTree = "<group>"; };
@@ -1991,6 +1996,7 @@
 		94FF3370284348F1003DE5DD /* KBWebViewBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KBWebViewBase.m; sourceTree = "<group>"; };
 		94FF337328435158003DE5DD /* SettingsFontPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFontPicker.swift; sourceTree = "<group>"; };
 		94FF33882843744C003DE5DD /* FiraCode-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "FiraCode-Regular.ttf"; path = "Dependencies/monaco-textmate.bundle/fonts/FiraCode-Regular.ttf"; sourceTree = "<group>"; };
+		C0D3A0092F00000000000001 /* CodeFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeFont.swift; sourceTree = "<group>"; };
 		9DA5FA622D7A51B30010CE11 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/Localizable.strings; sourceTree = "<group>"; };
 		9DFB70332D7A78B2005A5BB4 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		9F046C312922203E00BDE4E9 /* ToolbarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarManager.swift; sourceTree = "<group>"; };
@@ -2250,6 +2256,7 @@
 			children = (
 				94F88FDA2C628AA800326AD0 /* FiraCode-Regular.ttf */,
 				94F88FDC2C628AB200326AD0 /* FiraCode-Regular.ttf */,
+				C0D3A0122F00000000000001 /* SF-Mono-Regular.otf */,
 				9434C3F12BA345A700EB1CF6 /* PrivacyInfo.xcprivacy */,
 				94FF338728437438003DE5DD /* Fonts */,
 				94B99D9527D4A622005B5E3A /* Packages */,
@@ -2466,6 +2473,7 @@
 				94FF336E284348F1003DE5DD /* Code-Bridging-Header.h */,
 				94FF336F284348F1003DE5DD /* CodeUI-Bridging-Header.h */,
 				9FC03E68291F303900DECD1B /* Utilities.swift */,
+				C0D3A0092F00000000000001 /* CodeFont.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -3528,6 +3536,7 @@
 				941969A7280316C7008AAEB2 /* LaunchScreen.storyboard in Resources */,
 				941969A8280316C7008AAEB2 /* Assets.xcassets in Resources */,
 				94F88FDB2C628AA800326AD0 /* FiraCode-Regular.ttf in Resources */,
+				C0D3A0102F00000000000001 /* SF-Mono-Regular.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3568,6 +3577,7 @@
 				94A56835257CC60E008A6530 /* LaunchScreen.storyboard in Resources */,
 				944EEBF82563C386009D77FE /* Assets.xcassets in Resources */,
 				94F88FDD2C628AB200326AD0 /* FiraCode-Regular.ttf in Resources */,
+				C0D3A0112F00000000000001 /* SF-Mono-Regular.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3680,6 +3690,7 @@
 				9FC03E72291F6FE000DECD1B /* ExplorerFileTreeSection.swift in Sources */,
 				94196951280316C7008AAEB2 /* HierarchyList.swift in Sources */,
 				9FD5BCF029249F0200F20C4B /* WebViewBase.swift in Sources */,
+				C0D3A00B2F00000000000001 /* CodeFont.swift in Sources */,
 				9FD5BCE62923897200F20C4B /* PanelManager.swift in Sources */,
 				9FAE4998292DD76A00B1B962 /* MarkdownViewerExtension.swift in Sources */,
 				9FA1226F2A8B522100E7B417 /* AheadBehindIndicator.swift in Sources */,
@@ -3875,6 +3886,7 @@
 				9FC03E71291F6FE000DECD1B /* ExplorerFileTreeSection.swift in Sources */,
 				944FC40B25C5F69D00C7C43C /* HierarchyList.swift in Sources */,
 				9FD5BCEF29249F0200F20C4B /* WebViewBase.swift in Sources */,
+				C0D3A00A2F00000000000001 /* CodeFont.swift in Sources */,
 				9FD5BCE52923897200F20C4B /* PanelManager.swift in Sources */,
 				9FAE4997292DD76A00B1B962 /* MarkdownViewerExtension.swift in Sources */,
 				9FA1226E2A8B522100E7B417 /* AheadBehindIndicator.swift in Sources */,

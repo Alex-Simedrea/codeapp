@@ -14,6 +14,8 @@ public struct SettingsFontPicker: UIViewControllerRepresentable {
     )
         -> UIFontPickerViewController
     {
+        CodeFont.registerKnownFonts()
+
         let configuration = UIFontPickerViewController.Configuration()
         configuration.includeFaces = false
         configuration.displayUsingSystemFont = false

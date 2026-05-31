@@ -149,12 +149,15 @@ class MonacoImplementation: NSObject {
         else {
             return
         }
+        let localSources = CodeFont.cssLocalSources(for: fontFamily)
+        let fontExtension = CodeFont.webFontExtension(for: fontFamily)
+        let fontFormat = CodeFont.webFontFormat(for: fontFamily)
         let js = """
             var styles = `
                 @font-face {
                 font-family: "\(fontFamily)";
-                src: local("\(fontFamily)"),
-                  url("fonts://\(percentEncoded).ttf") format("truetype");
+                src: \(localSources),
+                  url("fonts://\(percentEncoded).\(fontExtension)") format("\(fontFormat)");
               }
             `
             var styleSheet = document.createElement("style")
