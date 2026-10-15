@@ -18,6 +18,89 @@ final class CodeUITests: XCTestCase {
         UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
     }
 
+    @MainActor
+    func testMonacoHardwareKeyRepeatRoutesTypingAndVimCommands() async throws {
+        var options = EditorOptions()
+        options.vimEnabled = true
+        let implementation = MonacoImplementation(
+            options: options, theme: EditorTheme(dark: nil, light: nil))
+        let webView = try XCTUnwrap(implementation.view as? WebViewBase)
+        let scene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIViewController()
+        window.frame = CGRect(x: 0, y: 0, width: 800, height: 600)
+        webView.frame = window.bounds
+        window.rootViewController!.view.addSubview(webView)
+        window.makeKeyAndVisible()
+        defer {
+            webView.configuration.userContentController.removeScriptMessageHandler(
+                forName: "toggleMessageHandler")
+            window.isHidden = true
+        }
+        func waitFor(_ script: String) async throws {
+            for _ in 0..<200 {
+                if (try? await webView.evaluateJavaScriptAsync(script)) as? Bool == true { return }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            XCTFail("Monaco did not reach expected state: \(script)")
+            throw NSError(domain: "MonacoTestTimeout", code: 1)
+        }
+        try await waitFor("typeof window.toggleVimMode === 'function'")
+        try await webView.evaluateJavaScriptAsync(
+            """
+            editor.setModel(monaco.editor.createModel('abcdef\\nabcdef\\nabcdef\\nabcdef', 'plaintext'));
+            toggleVimMode(true);
+            editor.setPosition({lineNumber: 3, column: 4});
+            editor.focus();
+            """)
+        try await waitFor("editor.hasTextFocus()")
+        for _ in 0..<100 {
+            if webView.repeatableEditorKeysEnabled { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(webView.repeatableEditorKeysEnabled)
+        let action = #selector(WebViewBase.handleRepeatableEditorKey(_:))
+        for _ in 0..<100 {
+            if webView.canPerformAction(action, withSender: nil) { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(
+            webView.canPerformAction(action, withSender: nil),
+            "Native editor input did not acquire focus: \(webView.scrollView.subviews)")
+        func send(_ input: String, flags: UIKeyModifierFlags = []) throws {
+            let command = try XCTUnwrap(
+                webView.keyCommands?.first {
+                    $0.action == action && $0.input == input && $0.modifierFlags == flags
+                })
+            XCTAssertTrue(command.wantsPriorityOverSystemBehavior)
+            webView.handleRepeatableEditorKey(command)
+        }
+        // UIKit's repeating action must work both before and after inserting text.
+        for key in "itesta" { try send(String(key)) }
+        try await waitFor("editor.getModel().getLineContent(3) === 'abctestadef'")
+        try send("a", flags: .shift)
+        try send("b", flags: .alphaShift)
+        try send("c", flags: [.shift, .alphaShift])
+        try await waitFor("editor.getModel().getLineContent(3) === 'abctestaABcdef'")
+        try await webView.evaluateJavaScriptAsync(
+            "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true, cancelable: true}))"
+        )
+        for _ in 0..<2 { try send("k") }
+        try await waitFor("editor.getPosition().lineNumber === 1")
+        try await waitFor("editor.getModel().getLineContent(3) === 'abctestaABcdef'")
+
+        // Override stays out of find fields and unrelated web views (e.g. terminal).
+        try await webView.evaluateJavaScriptAsync("editor.trigger('test', 'actions.find', {})")
+        for _ in 0..<100 {
+            if !webView.repeatableEditorKeysEnabled { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertFalse(webView.repeatableEditorKeysEnabled)
+        XCTAssertFalse(webView.canPerformAction(action, withSender: nil))
+        XCTAssertFalse(WebViewBase().keyCommands?.contains { $0.action == action } ?? false)
+    }
+
     //  https://github.com/thebaselab/codeapp/issues/746
     @MainActor
     func testAppendAndFocusNewEditor() throws {

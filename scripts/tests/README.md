@@ -28,3 +28,24 @@ process stays running. Disable **C/C++ over SSH**, disconnect SSH, or switch to 
 local folder and verify that the remote process exits and its diagnostics clear.
 If clangd is absent from the host's SSH PATH, expect one warning; there is no
 local fallback for remote files. Toggle the service to retry after installing it.
+
+## Hardware keyboard repeat
+
+After applying `scripts/patch-monaco-language-client.sh`, run:
+
+```sh
+NODE_PATH=/tmp/codeapp-lsp-tools/node_modules node scripts/tests/hardware-keyboard-integration.cjs
+```
+
+This uses the actual Monaco/Vim bundle to check UIKit's forwarding entry point in
+normal, insert, character/line/block visual, replace and operator-pending modes,
+as well as plain Monaco, undo, read-only editors and find-field focus isolation.
+`CodeUITests/testMonacoHardwareKeyRepeatRoutesTypingAndVimCommands` additionally
+checks the UIKit commands, responder availability, Shift/Caps Lock and WKWebView
+bridge on an iPad simulator.
+
+On an iPad with a physical keyboard, hold `hjkl` before and after typing `testa`
+and pressing Escape. All four must repeat without an accent menu. Hold a letter
+and a digit in insert and replace mode; verify repeated text. Also check visual
+selections, Shift/Caps Lock, Command shortcuts, Option input, the editor's Find
+field and a native text field. Repeat works with Vim disabled too.

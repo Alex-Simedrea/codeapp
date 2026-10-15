@@ -242,6 +242,8 @@ extension MonacoImplementation: WKScriptMessageHandler {
         }
 
         switch event {
+        case "Editor Keyboard Focus":
+            monacoWebView.repeatableEditorKeysEnabled = result["focused"] as? Bool ?? false
         case "Remote LSP":
             guard let id = result["id"] as? String, id == remoteLanguageServerID,
                 let action = result["action"] as? String

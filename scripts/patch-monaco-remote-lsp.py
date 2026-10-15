@@ -27,11 +27,17 @@ replace_once(
 source = source.replace('window.codeAppRemoteLSP.installNavigation(Qt.get(Ei),ns.editor)};Psi();', 'window.codeAppRemoteLSP.installNavigation(Qt.get(Ei),ns.editor,Qt.get(cs),Lc)};Psi();')
 replace_once('Wsi(),J7(ns.editor)};Psi();',
              'Wsi(),J7(ns.editor),window.codeAppRemoteLSP.installNavigation(Qt.get(Ei),ns.editor,Qt.get(cs),Lc)};Psi();')
+# The same setup function runs for recreated editors and both sides of a diff.
+replace_once('function J7(n){jSe()',
+             'function J7(n){window.codeAppHardwareKeyboard.install(n),jSe()')
 asset.write_text(source)
 bundle = asset.parent.parent
 shutil.copyfile(Path(__file__).parent / 'monaco/remote-lsp.js', bundle / 'remote-lsp.js')
+shutil.copyfile(Path(__file__).parent / 'monaco/hardware-keyboard.js', bundle / 'hardware-keyboard.js')
 index = bundle / 'index.html'
 html = index.read_text()
 if 'src="/remote-lsp.js"' not in html:
     html = html.replace('    <script type="module"', '    <script src="/remote-lsp.js"></script>\n    <script type="module"', 1)
-    index.write_text(html)
+if 'src="/hardware-keyboard.js"' not in html:
+    html = html.replace('    <script type="module"', '    <script src="/hardware-keyboard.js"></script>\n    <script type="module"', 1)
+index.write_text(html)

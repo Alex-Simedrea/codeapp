@@ -36,7 +36,70 @@ class SchemeHandler: NSObject, WKURLSchemeHandler {
 
 class WebViewBase: KBWebViewBase {
     var isMessageHandlerAdded = false
+    // Only Monaco opts in, while its editor textarea has focus. Terminal and search
+    // fields keep their own input handling.
+    var repeatableEditorKeysEnabled = false
     private var schemeHandler = SchemeHandler()
+
+    private lazy var repeatableEditorKeyCommands: [UIKeyCommand] = {
+        var commands: [UIKeyCommand] = []
+        for character in "abcdefghijklmnopqrstuvwxyz0123456789" {
+            let input = String(character)
+            let modifiers: [UIKeyModifierFlags] =
+                character.isLetter
+                ? [[], .shift, .alphaShift, [.shift, .alphaShift]] : [[], .alphaShift]
+            for flags in modifiers {
+                let command = UIKeyCommand(
+                    input: input, modifierFlags: flags,
+                    action: #selector(handleRepeatableEditorKey(_:)))
+                // Let UIKit repeat these commands instead of starting press-and-hold
+                // text alternatives, even after the web view has inserted text.
+                command.wantsPriorityOverSystemBehavior = true
+                command.allowsAutomaticLocalization = false
+                commands.append(command)
+            }
+        }
+        return commands
+    }()
+
+    override var keyCommands: [UIKeyCommand]? {
+        let inherited = super.keyCommands ?? []
+        return acceptsRepeatableEditorKeys ? inherited + repeatableEditorKeyCommands : inherited
+    }
+
+    private var acceptsRepeatableEditorKeys: Bool {
+        guard repeatableEditorKeysEnabled, let content = firstResponder(in: self)
+        else { return false }
+        // An explicit dead key or IME composition still belongs to the text input
+        // system. Only ordinary key presses should bypass its accent picker.
+        return (content as? UITextInput)?.markedTextRange == nil
+    }
+
+    private func firstResponder(in view: UIView) -> UIView? {
+        if view.isFirstResponder { return view }
+        for subview in view.subviews {
+            if let responder = firstResponder(in: subview) { return responder }
+        }
+        return nil
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(handleRepeatableEditorKey(_:)) {
+            return acceptsRepeatableEditorKeys
+        }
+        return super.canPerformAction(action, withSender: sender)
+    }
+
+    @objc func handleRepeatableEditorKey(_ command: UIKeyCommand) {
+        guard acceptsRepeatableEditorKeys, let input = command.input else { return }
+        let shifted = command.modifierFlags.contains(.shift)
+        let uppercase = shifted != command.modifierFlags.contains(.alphaShift)
+        let key = uppercase ? input.uppercased() : input
+        callAsyncJavaScript(
+            "return window.codeAppHardwareKeyboard?.typeKey(key, shiftKey);",
+            arguments: ["key": key, "shiftKey": shifted], in: nil, in: .page,
+            completionHandler: nil)
+    }
 
     init() {
         let config = WKWebViewConfiguration()
