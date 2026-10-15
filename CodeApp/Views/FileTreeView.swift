@@ -8,6 +8,11 @@
 import SwiftUI
 import UIKit
 
+enum FileTreeLayout {
+    static let rowHeight: CGFloat = 24
+    static let indentationWidth: CGFloat = 14
+}
+
 private var DISCLOSE_ON_HOVER_THRESHOLD = TimeInterval(1)  // 1 second
 
 extension UIView {
@@ -142,9 +147,8 @@ class TableViewDelegate: NSObject, UITableViewDataSource {
 
         let item = convertIndexPathToItem(indexPath: indexPath)
         let treeViewCellContentConfiguration = fileTreeDataSource.fileTreeView(
-            treeView, cellForItem: item.id)
+            treeView, cellForItem: item.id, depth: item.depth)
 
-        cell.indentationLevel = item.depth
         cell.contentConfiguration = treeViewCellContentConfiguration.configuration
 
         if item.hasChildren {
@@ -179,7 +183,7 @@ class TableViewDelegate: NSObject, UITableViewDataSource {
             var backgroundConfig = UIBackgroundConfiguration.clear()
             backgroundConfig.backgroundColor = UIColor(
                 Color.init(id: "list.inactiveSelectionBackground"))
-            backgroundConfig.cornerRadius = 10
+            backgroundConfig.cornerRadius = 3
             if dropDestinationHighlightedCells.contains(item.id) {
                 backgroundConfig.cornerRadius = 0
             }
@@ -516,6 +520,8 @@ class FileTreeView: UIView {
         tableView.dragInteractionEnabled = true
         tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
+        tableView.rowHeight = FileTreeLayout.rowHeight
+        tableView.estimatedRowHeight = FileTreeLayout.rowHeight
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "Cell")
         tableView.contentInset = .init(top: -20, left: 0, bottom: 0, right: 0)
         tableView.scrollIndicatorInsets = .init(top: 0, left: 0, bottom: 0, right: -10)
@@ -573,7 +579,8 @@ protocol FileTreeViewDelegate: AnyObject {
 
 protocol FileTreeViewDataSource: AnyObject {
     func fileTreeView(_ fileTreeView: FileTreeView, childrenOfItem: UUID) -> [UUID]?
-    func fileTreeView(_ fileTreeView: FileTreeView, cellForItem: UUID) -> FileTreeViewCell
+    func fileTreeView(_ fileTreeView: FileTreeView, cellForItem: UUID, depth: Int)
+        -> FileTreeViewCell
     func fileTreeView(_ fileTreeView: FileTreeView, hasChildrenForItem: UUID) -> Bool
     func fileTreeView(_ fileTreeView: FileTreeView, itemProviderForItem: UUID) -> NSItemProvider?
     func headerTitle(_ fileTreeView: FileTreeView) -> String?

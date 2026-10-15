@@ -41,7 +41,7 @@ where Data: RandomAccessCollection, Data.Element: Identifiable, Data.Element == 
     var onSelect: ((DataElement) -> Void)? = nil
     var onMove: ((DataElement, DataElement) -> Void)? = nil
     var onContextMenu: ((DataElement) -> UIMenu?)? = nil
-    var content: ((DataElement) -> FileTreeViewCell)? = nil
+    var content: ((DataElement, Int) -> FileTreeViewCell)? = nil
     var onExpand: ((DataElement) -> Void)? = nil
     var onContract: ((DataElement) -> Void)? = nil
     var itemProvider: ((DataElement) -> NSItemProvider?)? = nil
@@ -164,7 +164,9 @@ where Data: RandomAccessCollection, Data.Element: Identifiable, Data.Element == 
         return dataForUUID(uuid: hasChildrenForItem, at: data)?[keyPath: childrenPath] != nil
     }
 
-    func fileTreeView(_ fileTreeView: FileTreeView, cellForItem: UUID) -> FileTreeViewCell {
+    func fileTreeView(_ fileTreeView: FileTreeView, cellForItem: UUID, depth: Int)
+        -> FileTreeViewCell
+    {
         guard let data = dataForUUID(uuid: cellForItem, at: self.data),
             let content
         else {
@@ -173,7 +175,7 @@ where Data: RandomAccessCollection, Data.Element: Identifiable, Data.Element == 
                 isHighlighted: false
             )
         }
-        return content(data)
+        return content(data, depth)
     }
 
     func fileTreeView(_ fileTreeView: FileTreeView, itemProviderForItem: UUID) -> NSItemProvider? {

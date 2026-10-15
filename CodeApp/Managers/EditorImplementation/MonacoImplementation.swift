@@ -368,8 +368,8 @@ extension MonacoImplementation: EditorImplementation {
     }
 
     func blur() async {
-        _ = try? await monacoWebView.evaluateJavaScriptAsync(
-            "document.getElementById('overlay').focus()")
+        await MainActor.run { monacoWebView.endEditing(true) }
+        _ = try? await monacoWebView.evaluateJavaScriptAsync("document.activeElement?.blur()")
     }
 
     func searchTermInEditor(term: String) async {

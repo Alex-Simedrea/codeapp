@@ -16,6 +16,14 @@
         overflow: hidden;
         margin: 0;
       }
+      html, body {
+        width: 100%;
+        height: 100%;
+      }
+      #terminal {
+        width: 100%;
+        height: 100%;
+      }
       #overlay {
         width: 0;
         height: 0;
@@ -42,7 +50,7 @@
   </head>
   <body>
     <div tabindex="0" id="overlay"></div>
-    <div id="terminal" style="width: 100%; height: 96vh"></div>
+    <div id="terminal"></div>
     <script>
       var defaultLightTheme = {
         background: "#EBEBEB",
@@ -124,6 +132,95 @@
       term.loadAddon(fitAddon);
       term.open(document.getElementById("terminal"));
 
+      let terminalFontsReady = false;
+      let terminalOptionsRevision = 0;
+      let terminalFontFace = null;
+      let terminalFontSource = null;
+      let terminalReadyReported = false;
+      let terminalFitFrame = null;
+      let forceTerminalSizeReport = false;
+      let lastTerminalSize = "";
+      const terminalContainer = document.getElementById("terminal");
+
+      function fitAndReportTerminalSize(force = false) {
+        if (!terminalFontsReady || terminalContainer.clientWidth <= 0 ||
+            terminalContainer.clientHeight <= 0) return;
+        const dimensions = fitAddon.proposeDimensions();
+        if (!dimensions || !Number.isFinite(dimensions.cols) ||
+            !Number.isFinite(dimensions.rows)) return;
+        fitAddon.fit();
+        const size = `${term.cols},${term.rows}`;
+        if (force || size !== lastTerminalSize) {
+          lastTerminalSize = size;
+          window.webkit.messageHandlers.toggleMessageHandler2.postMessage({
+            Event: "window.size.change", Cols: term.cols, Rows: term.rows,
+          });
+        }
+      }
+
+      function scheduleTerminalFit(force = false) {
+        forceTerminalSizeReport = forceTerminalSizeReport || force;
+        if (terminalFitFrame !== null) return;
+        terminalFitFrame = requestAnimationFrame(() => {
+          terminalFitFrame = null;
+          const report = forceTerminalSizeReport;
+          forceTerminalSizeReport = false;
+          fitAndReportTerminalSize(report);
+        });
+      }
+
+      async function applyTerminalOptions(options) {
+        const revision = ++terminalOptionsRevision;
+        terminalFontsReady = false;
+        let family = options.fontFamily;
+        let face = terminalFontFace;
+        try {
+          if (!face || face.family !== family || terminalFontSource !== options.fontSource) {
+            face = new FontFace(family, options.fontSource);
+            await face.load();
+          }
+          if (revision !== terminalOptionsRevision) return;
+          document.fonts.add(face);
+          // Font loading must finish before xterm measures its character cells.
+          await document.fonts.load(`${options.fontSize}px ${JSON.stringify(family)}`, "MWil09");
+          await document.fonts.ready;
+        } catch (error) {
+          console.error("Unable to load terminal font", family, error);
+          family = "monospace";
+          face = null;
+        }
+        if (revision !== terminalOptionsRevision) {
+          if (face && face !== terminalFontFace) document.fonts.delete(face);
+          return;
+        }
+        if (terminalFontFace && terminalFontFace !== face) document.fonts.delete(terminalFontFace);
+        terminalFontFace = face;
+        terminalFontSource = options.fontSource;
+        // A changed option forces xterm to discard metrics cached before the font loaded,
+        // even when reapplying the same family. This uses the public options API.
+        term.options.fontFamily = family === "monospace" ? "serif" : "monospace";
+        term.options.fontSize = options.fontSize;
+        term.options.fontFamily = family;
+        terminalFontsReady = true;
+        term.clearTextureAtlas();
+        term.refresh(0, term.rows - 1);
+        fitAndReportTerminalSize(true);
+        scheduleTerminalFit();
+        if (!terminalReadyReported) {
+          terminalReadyReported = true;
+          window.webkit.messageHandlers.toggleMessageHandler2.postMessage({ Event: "Ready" });
+        }
+      }
+
+      // Native layout changes, tab visibility, and font changes share the same size-reporting path.
+      const terminalResizeObserver = new ResizeObserver(() => scheduleTerminalFit());
+      terminalResizeObserver.observe(terminalContainer);
+      window.addEventListener("resize", () => scheduleTerminalFit());
+
+      term.textarea.addEventListener("focus", () => {
+        window.webkit.messageHandlers.toggleMessageHandler2.postMessage({ Event: "Focus" });
+      });
+
       // Cancel wheel events from scrolling the page if the terminal has scrollback
       document.querySelector(".xterm").addEventListener("wheel", (e) => {
         if (term.buffer.active.baseY > 0) {
@@ -191,6 +288,8 @@
       }
 
       function getTerminalSize() {
+        if (!terminalFontsReady || terminalContainer.clientWidth <= 0 ||
+            terminalContainer.clientHeight <= 0) return null;
         return {
           cols: term.cols,
           rows: term.rows
@@ -363,15 +462,6 @@
           Input: "\u0003",
         });
       }
-
-      window.onresize = function (event) {
-        fitAddon.fit();
-        window.webkit.messageHandlers.toggleMessageHandler2.postMessage({
-          Event: "window.size.change",
-          Cols: term.cols,
-          Rows: term.rows,
-        });
-      };
 
       window.webkit.messageHandlers.toggleMessageHandler2.postMessage({
         Event: "Init",

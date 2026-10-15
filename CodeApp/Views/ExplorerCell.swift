@@ -15,7 +15,7 @@ struct ExplorerCell: View {
 
     var body: some View {
         FileCell(item: item)
-            .frame(height: 16)
+            .frame(height: FileTreeLayout.rowHeight)
     }
 }
 
@@ -115,7 +115,7 @@ private struct FileCell: View {
             }
 
         }
-        .padding(5)
+        .padding(.horizontal, 2)
         .onReceive(
             NotificationCenter.default.publisher(
                 for: Notification.Name("explorer.cell.rename"),

@@ -138,7 +138,36 @@ class MainStateManager: ObservableObject {
     @Published var isSystemExtensionsInitialized = false
 }
 
+enum WorkspaceFocus {
+    case editor, terminal, none
+}
+
 class MainApp: ObservableObject {
+    private(set) var focusedPane: WorkspaceFocus = .none
+    private var focusGeneration = 0
+
+    /// Own focus per window; background terminal work must never request keyboard focus.
+    func focusPane(_ pane: WorkspaceFocus, activate: Bool = true) {
+        focusGeneration += 1
+        let generation = focusGeneration
+        focusedPane = pane
+        if pane != .terminal {
+            terminalManager.setFocused(false)
+        }
+        Task { @MainActor in
+            guard generation == focusGeneration else { return }
+            if pane != .editor {
+                await monacoInstance.blur()
+            }
+            guard generation == focusGeneration else { return }
+            if pane == .terminal {
+                terminalManager.setFocused(true, activate: activate)
+            } else if pane == .editor && activate {
+                await monacoInstance.focus()
+            }
+        }
+    }
+
     let extensionManager = ExtensionManager()
     let stateManager = MainStateManager()
     let alertManager = AlertManager()
@@ -231,6 +260,13 @@ class MainApp: ObservableObject {
         let options = TerminalManager.readTerminalOptionsFromDefaults()
         self.terminalManager = TerminalManager(rootURL: rootDir, options: options)
         setUpEditorInstance()
+        terminalManager.onFocus = { [weak self] in
+            guard let self else { return }
+            self.focusPane(.terminal, activate: false)
+            NotificationCenter.default.post(
+                name: Notification.Name("terminal.focus"), object: nil,
+                userInfo: ["sceneIdentifier": self.sceneIdentifier])
+        }
 
         // Set up openEditor callback for initial terminal
         configureOpenEditorForTerminals()
@@ -1138,6 +1174,7 @@ class MainApp: ObservableObject {
     @MainActor
     func setActiveEditor(editor: EditorInstance) {
         activeEditor = editor
+        focusPane(.editor)
         guard let editor = editor as? EditorInstanceWithURL else {
             return
         }
@@ -1233,6 +1270,7 @@ class MainApp: ObservableObject {
 
 extension MainApp: EditorImplementationDelegate {
     func didEnterFocus() {
+        focusPane(.editor, activate: false)
         let notification = Notification(
             name: Notification.Name("editor.focus"),
             userInfo: ["sceneIdentifier": sceneIdentifier]

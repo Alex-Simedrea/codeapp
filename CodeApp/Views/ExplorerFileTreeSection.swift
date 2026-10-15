@@ -31,48 +31,24 @@ struct ExplorerFileTree: View {
         .FileItemRepresentable]
     {
 
-        var result = [WorkSpaceStorage.FileItemRepresentable]()
-
-        for item in folder ?? [WorkSpaceStorage.FileItemRepresentable]() {
-            if searchString == "" {
-                result.append(item)
-                continue
+        return (folder ?? []).compactMap { item in
+            // Apply visibility at every depth, including already expanded folders.
+            if !showHiddenFiles && item.name.hasPrefix(".") && !item.name.hasSuffix("icloud") {
+                return nil
             }
-            if item.subFolderItems == nil
-                && item.name.lowercased().contains(searchString.lowercased())
-            {
-                result.append(item)
-                continue
-            }
+            var item = item
             if item.subFolderItems != nil {
-                var temp = item
-                temp.subFolderItems = foldersWithFilter(folder: item.subFolderItems)
-                if temp.subFolderItems?.count != 0 {
-                    result.append(temp)
+                item.subFolderItems = foldersWithFilter(folder: item.subFolderItems)
+                if !searchString.isEmpty && item.subFolderItems?.isEmpty == true {
+                    return nil
                 }
+            } else if !searchString.isEmpty
+                && !item.name.localizedCaseInsensitiveContains(searchString)
+            {
+                return nil
             }
+            return item
         }
-
-        if !showHiddenFiles {
-            var finalResult = [WorkSpaceStorage.FileItemRepresentable]()
-            for item in result {
-                if item.name.hasPrefix(".") && !item.name.hasSuffix("icloud") {
-                    continue
-                }
-                if item.subFolderItems != nil {
-                    var temp = item
-                    temp.subFolderItems = temp.subFolderItems?.filter { a in
-                        return !a.name.hasPrefix(".")
-                    }
-                    finalResult.append(temp)
-                    continue
-                }
-                finalResult.append(item)
-            }
-            return finalResult
-        }
-
-        return result
     }
 
     func onCopyItemToFolder(item: WorkSpaceStorage.FileItemRepresentable, url: URL) {
@@ -277,7 +253,17 @@ struct ExplorerFileTree: View {
                     ])
             }
         }()
-        return uiMenu
+        let visibilityAction = UIAction(
+            title: NSLocalizedString("settings.explorer.show_hidden_files", comment: ""),
+            image: UIImage(systemName: "eye"),
+            state: showHiddenFiles ? .on : .off
+        ) { _ in
+            showHiddenFiles.toggle()
+        }
+        return UIMenu(
+            children: uiMenu.children + [
+                UIMenu(options: .displayInline, children: [visibilityAction])
+            ])
     }
 
     var body: some View {
@@ -286,10 +272,16 @@ struct ExplorerFileTree: View {
             children: \WorkSpaceStorage.FileItemRepresentable.subFolderItems,
             cellState: App.workSpaceStorage.cellState,
             expandedCells: $App.workSpaceStorage.expandedCells
-        ) { item in
+        ) { item, depth in
             UIHostingConfiguration {
                 ExplorerCell(item: item)
-            }.background(Color.init(id: "sideBar.background"))
+            }
+            .margins(.vertical, 0)
+            // Hosting configurations need explicit margins; UITableViewCell indentation
+            // only shifts the built-in content, not these SwiftUI rows.
+            .margins(.leading, 4 + CGFloat(depth) * FileTreeLayout.indentationWidth)
+            .margins(.trailing, 4)
+            .background(Color.init(id: "sideBar.background"))
         }.onSelect { item in
             if let url = item._url {
                 App.openFile(url: url)

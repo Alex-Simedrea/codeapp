@@ -29,7 +29,7 @@ where
     var onExpand: ((DataElement) -> Void)? = nil
     var onDrag: ((DataElement) -> NSItemProvider?)? = nil
     var header: String? = nil
-    @ViewBuilder var content: (DataElement) -> RowContent
+    @ViewBuilder var content: (DataElement, Int) -> RowContent
     @Binding var expandedCells: Set<DataElement.ID>
     var cellState: TableViewCellState<DataElement>
     @State var cellToScrollTo: DataElement.ID? = nil
@@ -64,7 +64,7 @@ where
     init(
         _ root: DataElement, children: KeyPath<DataElement, Data?>,
         cellState: TableViewCellState<DataElement>, expandedCells: Binding<Set<DataElement.ID>>,
-        content: @escaping (DataElement) -> RowContent
+        content: @escaping (DataElement, Int) -> RowContent
     ) {
         self.root = root
         self.children = children
@@ -127,7 +127,7 @@ where
         }
         controller.content = {
             FileTreeViewCell(
-                configuration: content($0),
+                configuration: content($0, $1),
                 isHighlighted: context.coordinator.cellState.highlightedCells.contains($0.id),
                 decoration: context.coordinator.cellState.cellDecorations[$0.id]
             )
@@ -164,6 +164,7 @@ where
     func updateUIViewController(
         _ uiViewController: FileTreeViewController<DataElement, Data>, context: Context
     ) {
+        uiViewController.onContextMenu = { onContextMenu?($0) }
         context.coordinator.isUpdatingView = true
         if root != uiViewController.data
             || context.coordinator.lastTheme?.id != themeManager.currentTheme?.id

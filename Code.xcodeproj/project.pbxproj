@@ -792,7 +792,11 @@
 		94F88FDB2C628AA800326AD0 /* FiraCode-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 94F88FDA2C628AA800326AD0 /* FiraCode-Regular.ttf */; };
 		94F88FDD2C628AB200326AD0 /* FiraCode-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 94F88FDC2C628AB200326AD0 /* FiraCode-Regular.ttf */; };
 		C0D3A0102F00000000000001 /* SF-Mono-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0122F00000000000001 /* SF-Mono-Regular.otf */; };
+		C0D3A0202F00000000000001 /* JetBrainsMonoNerdFontMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0222F00000000000001 /* JetBrainsMonoNerdFontMono-Regular.ttf */; };
+		C0D3A0302F00000000000001 /* JetBrainsMonoNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0322F00000000000001 /* JetBrainsMonoNerdFont-LICENSE.txt */; };
 		C0D3A0112F00000000000001 /* SF-Mono-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0122F00000000000001 /* SF-Mono-Regular.otf */; };
+		C0D3A0212F00000000000001 /* JetBrainsMonoNerdFontMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0222F00000000000001 /* JetBrainsMonoNerdFontMono-Regular.ttf */; };
+		C0D3A0312F00000000000001 /* JetBrainsMonoNerdFont-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A0322F00000000000001 /* JetBrainsMonoNerdFont-LICENSE.txt */; };
 		94FA8977292FB86700163800 /* PDFViewerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FA8975292FB86700163800 /* PDFViewerExtension.swift */; };
 		94FA8978292FB86700163800 /* PDFViewerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FA8975292FB86700163800 /* PDFViewerExtension.swift */; };
 		94FC220B257F7D2A00B85D1B /* SourceControlEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FC220A257F7D2900B85D1B /* SourceControlEntry.swift */; };
@@ -1988,6 +1992,8 @@
 		94F88FDA2C628AA800326AD0 /* FiraCode-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "FiraCode-Regular.ttf"; path = "Fonts/FiraCode-Regular.ttf"; sourceTree = "<group>"; };
 		94F88FDC2C628AB200326AD0 /* FiraCode-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "FiraCode-Regular.ttf"; path = "Fonts/FiraCode-Regular.ttf"; sourceTree = "<group>"; };
 		C0D3A0122F00000000000001 /* SF-Mono-Regular.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "SF-Mono-Regular.otf"; path = "Fonts/SF-Mono-Regular.otf"; sourceTree = "<group>"; };
+		C0D3A0222F00000000000001 /* JetBrainsMonoNerdFontMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "JetBrainsMonoNerdFontMono-Regular.ttf"; path = "Fonts/JetBrainsMonoNerdFontMono-Regular.ttf"; sourceTree = "<group>"; };
+		C0D3A0322F00000000000001 /* JetBrainsMonoNerdFont-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = file; name = "JetBrainsMonoNerdFont-LICENSE.txt"; path = "Fonts/JetBrainsMonoNerdFont-LICENSE.txt"; sourceTree = "<group>"; };
 		94FA8975292FB86700163800 /* PDFViewerExtension.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PDFViewerExtension.swift; sourceTree = "<group>"; };
 		94FC220A257F7D2900B85D1B /* SourceControlEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceControlEntry.swift; sourceTree = "<group>"; };
 		94FD17032BAED290003E1545 /* RunestoneImplementation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunestoneImplementation.swift; sourceTree = "<group>"; };
@@ -2261,6 +2267,8 @@
 				94F88FDA2C628AA800326AD0 /* FiraCode-Regular.ttf */,
 				94F88FDC2C628AB200326AD0 /* FiraCode-Regular.ttf */,
 				C0D3A0122F00000000000001 /* SF-Mono-Regular.otf */,
+				C0D3A0222F00000000000001 /* JetBrainsMonoNerdFontMono-Regular.ttf */,
+				C0D3A0322F00000000000001 /* JetBrainsMonoNerdFont-LICENSE.txt */,
 				9434C3F12BA345A700EB1CF6 /* PrivacyInfo.xcprivacy */,
 				94FF338728437438003DE5DD /* Fonts */,
 				94B99D9527D4A622005B5E3A /* Packages */,
@@ -3543,6 +3551,8 @@
 				941969A8280316C7008AAEB2 /* Assets.xcassets in Resources */,
 				94F88FDB2C628AA800326AD0 /* FiraCode-Regular.ttf in Resources */,
 				C0D3A0102F00000000000001 /* SF-Mono-Regular.otf in Resources */,
+				C0D3A0202F00000000000001 /* JetBrainsMonoNerdFontMono-Regular.ttf in Resources */,
+				C0D3A0302F00000000000001 /* JetBrainsMonoNerdFont-LICENSE.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3584,6 +3594,8 @@
 				944EEBF82563C386009D77FE /* Assets.xcassets in Resources */,
 				94F88FDD2C628AB200326AD0 /* FiraCode-Regular.ttf in Resources */,
 				C0D3A0112F00000000000001 /* SF-Mono-Regular.otf in Resources */,
+				C0D3A0212F00000000000001 /* JetBrainsMonoNerdFontMono-Regular.ttf in Resources */,
+				C0D3A0312F00000000000001 /* JetBrainsMonoNerdFont-LICENSE.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

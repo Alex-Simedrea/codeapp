@@ -47,6 +47,7 @@
 	<array>
 		<string>FiraCode-Regular.ttf</string>
 		<string>SF-Mono-Regular.otf</string>
+		<string>JetBrainsMonoNerdFontMono-Regular.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

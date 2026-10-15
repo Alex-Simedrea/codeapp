@@ -149,12 +149,14 @@ private struct MainView: View {
     @SceneStorage("panel.height") var panelHeight: Double = DefaultUIState.PANEL_HEIGHT
     @SceneStorage("panel.visible") var isPanelVisible: Bool = DefaultUIState.PANEL_IS_VISIBLE
 
+    @SceneStorage("panel.focusedId") var currentPanelId: String = DefaultUIState.PANEL_FOCUSED_ID
+
     func openConsolePanel() {
         if panelHeight < 70 {
             panelHeight = 200
         }
         isPanelVisible.toggle()
-        App.terminalManager.activeTerminal?.webView.becomeFirstResponder()
+        App.focusPane(isPanelVisible && currentPanelId == "TERMINAL" ? .terminal : .editor)
     }
 
     var body: some View {
@@ -230,6 +232,11 @@ private struct MainView: View {
         }
         .onChange(of: runeStoneEditorEnabled) { _ in
             App.setUpEditorInstance()
+        }
+        .onChange(of: isPanelVisible) { visible in
+            if !visible && App.focusedPane == .terminal {
+                App.focusPane(.editor)
+            }
         }
         .onChange(of: terminalOptions) { newValue in
             App.terminalManager.applyOptionsToAll(newValue.value)

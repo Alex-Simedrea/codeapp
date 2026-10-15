@@ -29,6 +29,7 @@ struct TerminalTabBar: View {
                             canClose: App.terminalManager.terminals.count > 1,
                             onSelect: {
                                 App.terminalManager.setActiveTerminal(id: terminal.id)
+                                App.focusPane(.terminal)
                             },
                             onClose: {
                                 App.terminalManager.closeTerminal(id: terminal.id)

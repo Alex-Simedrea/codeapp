@@ -10,11 +10,16 @@ import UIKit
 
 enum CodeFont {
     static let sfMonoFamilyName = "SF Mono"
+    static let jetBrainsMonoFamilyName = "JetBrainsMono Nerd Font Mono"
+    private static let jetBrainsMonoPostScriptName = "JetBrainsMonoNFM-Regular"
 
     private static let sfMonoFileName = "SF-Mono-Regular"
     private static let sfMonoPostScriptName = "SFMono-Regular"
 
     private static let aliases = [
+        jetBrainsMonoFamilyName: jetBrainsMonoPostScriptName,
+        "JetBrains Mono Nerd Font": jetBrainsMonoPostScriptName,
+        jetBrainsMonoPostScriptName: jetBrainsMonoPostScriptName,
         sfMonoFamilyName: sfMonoPostScriptName,
         "SF Mono Regular": sfMonoPostScriptName,
         sfMonoPostScriptName: sfMonoPostScriptName,
@@ -50,6 +55,12 @@ enum CodeFont {
     }
 
     static func fontData(named name: String) -> Data? {
+        if aliases[name] == jetBrainsMonoPostScriptName,
+            let url = Bundle.main.url(
+                forResource: "JetBrainsMonoNerdFontMono-Regular", withExtension: "ttf")
+        {
+            return try? Data(contentsOf: url)
+        }
         guard let font = font(named: name, size: 12) else {
             return nil
         }
@@ -85,9 +96,10 @@ enum CodeFont {
     }
 
     private static func knownFontURLs() -> [URL] {
-        guard let bundledURL = Bundle.main.url(forResource: sfMonoFileName, withExtension: "otf")
-        else { return [] }
-        return [bundledURL]
+        return [
+            Bundle.main.url(forResource: sfMonoFileName, withExtension: "otf"),
+            Bundle.main.url(forResource: "JetBrainsMonoNerdFontMono-Regular", withExtension: "ttf"),
+        ].compactMap { $0 }
     }
 
     private static func cssEscaped(_ value: String) -> String {

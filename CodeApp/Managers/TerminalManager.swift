@@ -20,6 +20,20 @@ class TerminalManager: ObservableObject {
     /// Tracks the terminal that initiated a remote connection for proper data routing
     @Published private(set) var remoteTerminalId: UUID?
 
+    private(set) var isFocused = false
+    var onFocus: (() -> Void)?
+
+    func setFocused(_ focused: Bool, activate: Bool = true) {
+        assertMainThread()
+        isFocused = focused
+        for terminal in terminals where !focused || terminal.id != activeTerminalId {
+            terminal.blur()
+        }
+        if focused && activate {
+            activeTerminal?.focus()
+        }
+    }
+
     private var rootURL: URL
     private var options: TerminalOptions
     private var terminalServiceProvider: TerminalServiceProvider?
@@ -92,6 +106,10 @@ class TerminalManager: ObservableObject {
 
     private func createTerminalInstance(name: String) -> TerminalInstance {
         let terminal = TerminalInstance(root: rootURL, options: options, name: name)
+        terminal.onFocus = { [weak self, weak terminal] in
+            guard let self, terminal?.id == self.activeTerminalId else { return }
+            self.onFocus?()
+        }
         // We do not support creating remote terminal instances for now
         return terminal
     }
@@ -170,10 +188,6 @@ class TerminalManager: ObservableObject {
         logger.info(
             "created terminal name: \(terminal.name, privacy: .public) id: \(terminal.id, privacy: .public)"
         )
-        // Introduce delay to allow web view finishes loading before calling focus
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            terminal.focus()
-        }
         return terminal
     }
 
@@ -290,9 +304,14 @@ class TerminalManager: ObservableObject {
     }
 
     private func setActiveTerminalId(_ id: UUID?) {
+        if activeTerminalId != id {
+            activeTerminal?.blur()
+        }
         activeTerminalId = id
         syncRemoteTerminalId()
-        activeTerminal?.focus()
+        if isFocused {
+            activeTerminal?.focus()
+        }
     }
 
     private func syncRemoteTerminalId() {

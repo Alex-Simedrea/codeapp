@@ -22,6 +22,9 @@ struct EditorView: View {
     @AppStorage("editorFontSize") var editorTextSize: Int = 14
     @SceneStorage("sidebar.visible") var isSideBarVisible: Bool = DefaultUIState.SIDEBAR_VISIBLE
 
+    @SceneStorage("panel.visible") var isPanelVisible: Bool = DefaultUIState.PANEL_IS_VISIBLE
+    @SceneStorage("panel.focusedId") var currentPanelId: String = DefaultUIState.PANEL_FOCUSED_ID
+
     @State var targeted: Bool = false
 
     func onDropURL(url: URL) {
@@ -35,6 +38,16 @@ struct EditorView: View {
             ZStack {
                 // Invisible buttons for creating keyboard shortcuts in SwiftUI
                 VStack {
+                    Button("Focus Editor") {
+                        App.focusPane(.editor)
+                    }.keyboardShortcut("1", modifiers: [.command])
+
+                    Button("Focus Terminal") {
+                        currentPanelId = "TERMINAL"
+                        isPanelVisible = true
+                        App.focusPane(.terminal)
+                    }.keyboardShortcut("`", modifiers: [.control])
+
                     Button("New File") {
                         stateManager.showsNewFileSheet.toggle()
                     }.keyboardShortcut("n", modifiers: [.command])
@@ -121,6 +134,11 @@ struct EditorView: View {
                 }
 
             }
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    App.focusPane(.editor, activate: false)
+                }
+            )
             .onReceive(
                 NotificationCenter.default.publisher(
                     for: Notification.Name("editor.focus"),
@@ -129,9 +147,7 @@ struct EditorView: View {
                     guard let sceneIdentifier = notification.userInfo?["sceneIdentifier"] as? UUID,
                         sceneIdentifier != App.sceneIdentifier
                     else { return }
-                    Task {
-                        await App.monacoInstance.blur()
-                    }
+                    App.focusPane(.none)
                 }
             )
             .onReceive(
@@ -139,9 +155,10 @@ struct EditorView: View {
                     for: Notification.Name("terminal.focus"),
                     object: nil),
                 perform: { notification in
-                    Task {
-                        await App.monacoInstance.blur()
-                    }
+                    guard let sceneIdentifier = notification.userInfo?["sceneIdentifier"] as? UUID,
+                        sceneIdentifier != App.sceneIdentifier
+                    else { return }
+                    App.focusPane(.none)
                 }
             )
             .onReceive(

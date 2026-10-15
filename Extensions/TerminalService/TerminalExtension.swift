@@ -26,6 +26,7 @@ private struct ToolbarView: View {
             if App.terminalManager.canCreateNewTerminal {
                 Button(action: {
                     App.terminalManager.createTerminal()
+                    App.focusPane(.terminal)
                 }) {
                     Image(systemName: "plus")
                 }
@@ -86,7 +87,7 @@ private struct MultiTerminalView: View {
 
     private func fitTerminalIfReady(_ terminal: TerminalInstance) {
         guard terminal.isReady else { return }
-        terminal.executeScript("fitAddon.fit()")
+        terminal.fitToContainer()
     }
 
     var body: some View {
@@ -101,39 +102,19 @@ private struct MultiTerminalView: View {
                 }
             }
             .contentShape(Rectangle())
-            .onTapGesture {
-                let notification = Notification(
-                    name: Notification.Name("terminal.focus"),
-                    userInfo: ["sceneIdentifier": App.sceneIdentifier]
-                )
-                NotificationCenter.default.post(notification)
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    App.focusPane(.terminal)
+                }
+            )
+            .onDisappear {
+                if App.focusedPane == .terminal {
+                    App.focusPane(.editor)
+                }
             }
-            .onReceive(
-                NotificationCenter.default.publisher(
-                    for: Notification.Name("editor.focus"),
-                    object: nil),
-                perform: { _ in
-                    App.terminalManager.activeTerminal?.blur()
-                }
-            )
-            .onReceive(
-                NotificationCenter.default.publisher(
-                    for: Notification.Name("terminal.focus"),
-                    object: nil),
-                perform: { notification in
-                    guard
-                        let sceneIdentifier = notification.userInfo?["sceneIdentifier"] as? UUID,
-                        sceneIdentifier != App.sceneIdentifier
-                    else { return }
-                    App.terminalManager.activeTerminal?.blur()
-                }
-            )
             .onAppear(perform: {
                 guard let terminal = App.terminalManager.activeTerminal else { return }
-                // Allow WKWebView to get the correct frame size before calling fit
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    fitTerminalIfReady(terminal)
-                }
+                fitTerminalIfReady(terminal)
             })
             .onChange(of: App.terminalManager.activeTerminalId) { _ in
                 guard let terminal = App.terminalManager.activeTerminal else {

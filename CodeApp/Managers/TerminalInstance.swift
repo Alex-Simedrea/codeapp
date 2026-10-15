@@ -51,13 +51,22 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
     public var openEditor: ((URL) -> Void)? = nil
 
     var isInteractive = false
+    var onFocus: (() -> Void)?
+    private(set) var isFocusRequested = false
 
     func blur() {
-        executeScript("document.getElementById('overlay').focus()")
+        isFocusRequested = false
+        webView.endEditing(true)
+        executeScript("term.blur(); document.activeElement?.blur()")
     }
 
     func focus() {
-        executeScript("term.focus()")
+        isFocusRequested = true
+        guard isReady else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.isFocusRequested else { return }
+            self.webView.evaluateJavaScript("term.focus()", completionHandler: nil)
+        }
     }
 
     func sendInterrupt() {
@@ -79,51 +88,38 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
     }
 
     private func syncTerminalSizeToServiceProvider() {
-        guard isReady, let terminalServiceProvider else {
-            return
-        }
+        guard isReady, terminalServiceProvider != nil else { return }
+        // Refit before reporting: cached columns may belong to an earlier font or pane size.
+        fitToContainer()
+    }
 
-        Task {
-            guard let size = await getTerminalSize() else {
-                return
-            }
-            terminalServiceProvider.setWindowsSize(cols: size.cols, rows: size.rows)
-        }
+    func fitToContainer() {
+        executeScript("scheduleTerminalFit(true)")
     }
 
     func setFontSize(size: Int) {
-        executeScript("term.options.fontSize = \(size)")
-    }
-
-    private func applyFont(fontFamily: String) {
-        guard
-            let percentEncoded = fontFamily.addingPercentEncoding(
-                withAllowedCharacters: .urlPathAllowed)
-        else {
-            return
-        }
-        let localSources = CodeFont.cssLocalSources(for: fontFamily)
-        let fontExtension = CodeFont.webFontExtension(for: fontFamily)
-        let fontFormat = CodeFont.webFontFormat(for: fontFamily)
-        let js = """
-            var styles = `
-                @font-face {
-                font-family: "\(fontFamily)";
-                src: \(localSources),
-                  url("fonts://\(percentEncoded).\(fontExtension)") format("\(fontFormat)");
-              }
-            `
-            var styleSheet = document.createElement("style")
-            styleSheet.innerHTML = styles
-            document.head.appendChild(styleSheet)
-            """
-        executeScript(js)
-        executeScript("term.options.fontFamily = '\(fontFamily)'")
+        options.fontSize = size
     }
 
     private func configureCustomOptions() {
-        executeScript("term.options.fontSize = \(String(options.fontSize))")
-        applyFont(fontFamily: options.fontFamily)
+        guard
+            let percentEncoded = options.fontFamily.addingPercentEncoding(
+                withAllowedCharacters: .urlPathAllowed)
+        else { return }
+        let fontExtension = CodeFont.webFontExtension(for: options.fontFamily)
+        let fontFormat = CodeFont.webFontFormat(for: options.fontFamily)
+        let source =
+            CodeFont.cssLocalSources(for: options.fontFamily)
+            + ", url(\"fonts://\(percentEncoded).\(fontExtension)\") format(\"\(fontFormat)\")"
+        let configuration: [String: Any] = [
+            "fontFamily": options.fontFamily,
+            "fontSize": options.fontSize,
+            "fontSource": source,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: configuration),
+            let json = String(data: data, encoding: .utf8)
+        else { return }
+        executeScript("void applyTerminalOptions(\(json))")
     }
 
     func resetAndSetNewRootDirectory(url: URL) {
@@ -243,16 +239,57 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
         guard let result = message.body as? [String: AnyObject] else { return }
         guard let event = result["Event"] as? String else { return }
 
+        // Handle focus before command routing, including remote and interactive sessions.
+        if event == "Focus" {
+            onFocus?()
+            return
+        }
+
+        if event == "window.size.change" {
+            guard let cols = result["Cols"] as? Int, let rows = result["Rows"] as? Int,
+                cols > 0, rows > 0
+            else { return }
+            if let terminalServiceProvider {
+                terminalServiceProvider.setWindowsSize(cols: cols, rows: rows)
+            } else {
+                executor?.setWindowSize(cols: cols, rows: rows)
+            }
+            return
+        }
+
+        if event == "Init" {
+            guard executor != nil else {
+                fatalError("Executor has not been initialized")
+            }
+            if terminalServiceProvider != nil {
+                // A restored SSH session can arrive before the page finishes loading.
+                executeScript("startInteractive()")
+            } else {
+                self.readLine()
+            }
+
+            if var lightTheme = ThemeManager.lightTheme {
+                self.applyTheme(rawTheme: lightTheme.dictionary)
+            }
+            if var darkTheme = ThemeManager.darkTheme {
+                self.applyTheme(rawTheme: darkTheme.dictionary)
+            }
+            configureCustomOptions()
+            return
+        }
+
+        if event == "Ready" {
+            isReady = true
+            if isFocusRequested { focus() }
+            syncTerminalSizeToServiceProvider()
+            NotificationCenter.default.post(name: .terminalDidInitialize, object: self)
+            return
+        }
+
         if let ts = self.terminalServiceProvider {
             startInteractive()
 
             switch event {
-            case "window.size.change":
-                let cols = result["Cols"] as! Int
-                let rows = result["Rows"] as! Int
-                if let ts = terminalServiceProvider {
-                    ts.setWindowsSize(cols: cols, rows: rows)
-                }
             case "Data":
                 if let input = result["Input"] as? String {
                     ts.write(data: "\(input)".data(using: .utf8)!)
@@ -394,26 +431,6 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
                     }
                 }
             }
-        case "Init":
-            guard executor != nil else {
-                fatalError("Executor has not been initialized")
-            }
-            self.readLine()
-
-            if var lightTheme = ThemeManager.lightTheme {
-                self.applyTheme(rawTheme: lightTheme.dictionary)
-            }
-            if var darkTheme = ThemeManager.darkTheme {
-                self.applyTheme(rawTheme: darkTheme.dictionary)
-            }
-            configureCustomOptions()
-            isReady = true
-            syncTerminalSizeToServiceProvider()
-            NotificationCenter.default.post(name: .terminalDidInitialize, object: self)
-        case "window.size.change":
-            let cols = result["Cols"] as! Int
-            let rows = result["Rows"] as! Int
-            executor?.setWindowSize(cols: cols, rows: rows)
         case "Data":
             let data = result["Input"] as! String
 
