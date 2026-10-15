@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C0D3B0052F00000000000001 /* RemoteLanguageServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3B0042F00000000000001 /* RemoteLanguageServer.swift */; };
+		C0D3B0062F00000000000001 /* RemoteLanguageServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3B0042F00000000000001 /* RemoteLanguageServer.swift */; };
+		C0D3B0022F00000000000001 /* LanguageServerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3B0012F00000000000001 /* LanguageServerProtocol.swift */; };
+		C0D3B0032F00000000000001 /* LanguageServerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3B0012F00000000000001 /* LanguageServerProtocol.swift */; };
 		940C68252C646E0400089EA3 /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940C68242C646E0400089EA3 /* System.swift */; };
 		940C68262C64704C00089EA3 /* String+toCString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949B3CC425DEA89A00BC83B5 /* String+toCString.swift */; };
 		940C68272C65D36700089EA3 /* commandDictionary.plist in Resources */ = {isa = PBXBuildFile; fileRef = 948D11FF2583F20C008F877A /* commandDictionary.plist */; };
@@ -1428,6 +1432,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C0D3B0042F00000000000001 /* RemoteLanguageServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteLanguageServer.swift; sourceTree = "<group>"; };
+		C0D3B0012F00000000000001 /* LanguageServerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageServerProtocol.swift; sourceTree = "<group>"; };
 		2585773530320C1C003E6820 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		2585773C30320C93003E6820 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4F30816829662CBF002708FD /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -3203,6 +3209,8 @@
 				9434C3EE2BA2CCBB00EB1CF6 /* WASMService.swift */,
 				949D78842C33DA48006D7480 /* AppExtensionService.swift */,
 				949CDF492C6658DC00FFC5B1 /* LanguageService.swift */,
+				C0D3B0042F00000000000001 /* RemoteLanguageServer.swift */,
+				C0D3B0012F00000000000001 /* LanguageServerProtocol.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -3287,6 +3295,7 @@
 				9419693C280316C7008AAEB2 /* Sources */,
 				9419698E280316C7008AAEB2 /* Frameworks */,
 				9419699A280316C7008AAEB2 /* Resources */,
+				C0D3B0072F00000000000001 /* Patch Monaco Language Client */,
 				941969AA280316C7008AAEB2 /* Embed Frameworks */,
 				94EDC7B72C2DCBF600C86F56 /* Embed Foundation Extensions */,
 			);
@@ -3377,6 +3386,7 @@
 				944EEBEC2563C381009D77FE /* Sources */,
 				944EEBED2563C381009D77FE /* Frameworks */,
 				944EEBEE2563C381009D77FE /* Resources */,
+				C0D3B0082F00000000000001 /* Patch Monaco Language Client */,
 				94A77817257BC13F008FE7B2 /* Embed Frameworks */,
 				94369B0B25E3B933008419A0 /* Embed Foundation Extensions */,
 			);
@@ -3665,6 +3675,30 @@
 			shellPath = /bin/sh;
 			shellScript = "rm -rf \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/clangd-lsp/clangd.framework\"\n";
 		};
+		C0D3B0072F00000000000001 /* Patch Monaco Language Client */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Patch Monaco Language Client";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/bash \"${SRCROOT}/scripts/patch-monaco-language-client.sh\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/monaco-textmate.bundle/assets/index-CAlTf3CB.js\"\n";
+		};
+		C0D3B0082F00000000000001 /* Patch Monaco Language Client */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Patch Monaco Language Client";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/bash \"${SRCROOT}/scripts/patch-monaco-language-client.sh\" \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/monaco-textmate.bundle/assets/index-CAlTf3CB.js\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -3833,6 +3867,8 @@
 				9FA122682A8B2AC300E7B417 /* EditorLineColumnIndicator.swift in Sources */,
 				94795C4C293259080057C12F /* Encoding.swift in Sources */,
 				949CDF4B2C6658DC00FFC5B1 /* LanguageService.swift in Sources */,
+				C0D3B0062F00000000000001 /* RemoteLanguageServer.swift in Sources */,
+				C0D3B0032F00000000000001 /* LanguageServerProtocol.swift in Sources */,
 				94A046262804A67100182275 /* SourceControlSection.swift in Sources */,
 				94A04608280493C600182275 /* SourceControlCloneSection.swift in Sources */,
 				FFD081BC29260B00001D9373 /* Libgit2Error.swift in Sources */,
@@ -4029,6 +4065,8 @@
 				9FA122672A8B2AC300E7B417 /* EditorLineColumnIndicator.swift in Sources */,
 				94795C4B293259080057C12F /* Encoding.swift in Sources */,
 				949CDF4A2C6658DC00FFC5B1 /* LanguageService.swift in Sources */,
+				C0D3B0052F00000000000001 /* RemoteLanguageServer.swift in Sources */,
+				C0D3B0022F00000000000001 /* LanguageServerProtocol.swift in Sources */,
 				94A046252804A67100182275 /* SourceControlSection.swift in Sources */,
 				94A04607280493C600182275 /* SourceControlCloneSection.swift in Sources */,
 				FFD081BB29260B00001D9373 /* Libgit2Error.swift in Sources */,

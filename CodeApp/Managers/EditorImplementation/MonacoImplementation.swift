@@ -50,6 +50,8 @@ extension WKWebView {
 
 class MonacoImplementation: NSObject {
     private var monacoWebView = WebViewBase()
+    private var remoteLanguageServer: RemoteLanguageServer?
+    private var remoteLanguageServerID: String?
     var options: EditorOptions {
         didSet {
             Task { await configureCustomOptions() }
@@ -129,6 +131,8 @@ class MonacoImplementation: NSObject {
 
     private func configureCustomOptions() async {
         await applyOptions(options: "automaticLayout: true, lineNumbersMinChars: 5")
+        // clangd's standard completions also appear as Monaco's inline suggestion preview.
+        await applyOptions(options: "suggest: { preview: true }, inlineSuggest: { enabled: true }")
         await applyOptions(options: "fontSize: \(String(options.fontSize))")
         await applyFont(fontFamily: options.fontFamily)
         await applyOptions(options: "autoClosingBrackets: \(options.autoClosingBrackets)")
@@ -238,6 +242,40 @@ extension MonacoImplementation: WKScriptMessageHandler {
         }
 
         switch event {
+        case "Remote LSP":
+            guard let id = result["id"] as? String, id == remoteLanguageServerID,
+                let action = result["action"] as? String
+            else { return }
+            switch action {
+            case "open": remoteLanguageServer?.start()
+            case "send":
+                if let data = result["data"] as? String { remoteLanguageServer?.send(data) }
+            case "close": remoteLanguageServer?.stop()
+            default: break
+            }
+        case "Remote LSP Open":
+            guard let uri = result["uri"] as? String, let url = URL(string: uri),
+                url.scheme == "sftp", let request = result["request"] as? String
+            else { return }
+            Task { @MainActor in
+                let success =
+                    await delegate?.editorImplementation(openLanguageServerURL: url) ?? false
+                guard let arguments = Self.jsonLiteral([request, success] as [Any]) else { return }
+                try? await monacoWebView.evaluateJavaScriptAsync(
+                    "window.codeAppRemoteLSP.finishNavigation(...\(arguments))")
+            }
+        case "Remote LSP Read":
+            guard let uri = result["uri"] as? String, let url = URL(string: uri),
+                url.scheme == "sftp", let request = result["request"] as? String
+            else { return }
+            Task { @MainActor in
+                let text = await delegate?.editorImplementation(readLanguageServerURL: url)
+                guard
+                    let arguments = Self.jsonLiteral([request, text as Any? ?? NSNull()] as [Any])
+                else { return }
+                try? await monacoWebView.evaluateJavaScriptAsync(
+                    "window.codeAppRemoteLSP.finishRead(...\(arguments))")
+            }
         case "focus":
             delegate?.didEnterFocus()
         case "Request Diff Update":
@@ -498,6 +536,7 @@ extension MonacoImplementation: EditorImplementation {
         documentSelector: [String],
         initializationOptions: [String: Any]
     ) {
+        disconnectRemoteLanguageService()
         guard let pwdBookmark = try? pwd.bookmarkData(),
             let encodedPwd = pwd.absoluteString.base64Encoded(),
             let serverArgsJSON = Self.jsonLiteral(serverArgs),
@@ -537,8 +576,49 @@ extension MonacoImplementation: EditorImplementation {
     }
 
     func disconnectLanguageService() {
+        disconnectRemoteLanguageService()
         Task {
             try? await monacoWebView.evaluateJavaScriptAsync("disconnectLanguageServer()")
+        }
+    }
+
+    private func disconnectRemoteLanguageService() {
+        remoteLanguageServerID = nil
+        remoteLanguageServer?.stop()
+        remoteLanguageServer = nil
+    }
+
+    func connectRemoteLanguageService(provider: SFTPFileSystemProvider, pwd: URL) {
+        disconnectRemoteLanguageService()
+        let id = UUID().uuidString
+        remoteLanguageServerID = id
+        remoteLanguageServer = provider.makeLanguageServer(workspace: pwd) {
+            [weak self] event, data in
+            guard let self, self.remoteLanguageServerID == id,
+                let arguments = Self.jsonLiteral([id, event, data])
+            else { return }
+            // Issue evaluations in stream order on the main queue.
+            self.monacoWebView.evaluateJavaScript(
+                "window.codeAppRemoteLSP.receive(...\(arguments))")
+            if event == "close", !data.isEmpty {
+                self.delegate?.editorImplementation(languageServerError: data)
+            }
+        }
+        guard let encodedPwd = pwd.absoluteString.base64Encoded(),
+            let args = Self.jsonLiteral(
+                [
+                    "codeapp-ssh:\(id)", [], encodedPwd, "", "c", ["c", "cpp"], [:],
+                ] as [Any])
+        else { return }
+        Task { @MainActor in
+            guard remoteLanguageServerID == id else { return }
+            do {
+                try await monacoWebView.evaluateJavaScriptAsync(
+                    "connectMonacoToLanguageServer(...\(args)); void 0")
+            } catch {
+                disconnectRemoteLanguageService()
+                delegate?.editorImplementation(languageServerError: error.localizedDescription)
+            }
         }
     }
 

@@ -27,6 +27,8 @@ struct SettingsView: View {
         value: TerminalOptions())
     @AppStorage("runeStoneEditorEnabled") var runeStoneEditorEnabled: Bool = false
     @AppStorage("languageServiceEnabled") var languageServiceEnabled: Bool = true
+    @AppStorage("remoteClangdEnabled") var remoteClangdEnabled = true
+    @AppStorage("localClangdEnabled") var localClangdEnabled = false
 
     @State var showAllFonts = false
     @State var showsEraseAlert: Bool = false
@@ -122,9 +124,25 @@ struct SettingsView: View {
                     Section(
                         content: {
                             Toggle(
-                                "settings.language_service.enable", isOn: $languageServiceEnabled)
+                                "settings.language_service.enable", isOn: $languageServiceEnabled
+                            )
+                            .onChange(of: languageServiceEnabled) { _ in
+                                App.refreshLanguageServices()
+                            }
+                            Toggle("C/C++ over SSH", isOn: $remoteClangdEnabled)
+                                .onChange(of: remoteClangdEnabled) { _ in
+                                    App.refreshLanguageServices()
+                                }
+                            Toggle("Local C/C++ (experimental)", isOn: $localClangdEnabled)
+                                .onChange(of: localClangdEnabled) { _ in
+                                    App.refreshLanguageServices()
+                                }
                         }, header: { Text("settings.language_service") },
-                        footer: { Text("settings.language_service.notes") })
+                        footer: {
+                            Text(
+                                "SSH C/C++ uses clangd installed on the remote host for files opened through SFTP. Local C/C++ uses the bundled experimental server. Requires the Monaco editor."
+                            )
+                        })
 
                     Section(header: Text(NSLocalizedString("Editor", comment: ""))) {
 

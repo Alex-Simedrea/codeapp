@@ -249,6 +249,10 @@ class MainApp: ObservableObject {
     @AppStorage("stateRestorationEnabled") var stateRestorationEnabled = true
     @AppStorage("runeStoneEditorEnabled") var runeStoneEditorEnabled: Bool = false
     @AppStorage("languageServiceEnabled") var languageServiceEnabled: Bool = true
+    @AppStorage("remoteClangdEnabled") var remoteClangdEnabled = true
+    @AppStorage("localClangdEnabled") var localClangdEnabled = false
+    private var languageServiceTask: Task<Void, Never>?
+    private var languageServiceKey: String?
 
     init() {
 
@@ -346,6 +350,7 @@ class MainApp: ObservableObject {
     }
 
     func setUpEditorInstance() {
+        disconnectLanguageServices()
         stateManager.isMonacoEditorInitialized = false
         if runeStoneEditorEnabled {
             monacoInstance = RunestoneImplementation(
@@ -386,11 +391,12 @@ class MainApp: ObservableObject {
         }
     }
 
+    @MainActor
     private func updateActiveEditor() async {
         guard let activeTextEditor else {
-            Task {
-                await monacoInstance.setModelToEmpty()
-            }
+            languageServiceTask?.cancel()
+            disconnectLanguageServices()
+            await monacoInstance.setModelToEmpty()
             return
         }
         if let diffEditor = activeTextEditor as? DiffTextEditorInstnace {
@@ -399,49 +405,82 @@ class MainApp: ObservableObject {
                 originalContent: diffEditor.compareWith, modifiedContent: diffEditor.content,
                 originalUrl: diffURL.absoluteString, modifiedUrl: diffEditor.url.absoluteString)
         } else {
-            Task {
-                if await monacoInstance.isEditorInDiffMode() {
-                    await monacoInstance.switchToNormalMode()
-                }
-                await monacoInstance.createNewModel(
-                    url: activeTextEditor.url.absoluteString, value: activeTextEditor.content)
+            if await monacoInstance.isEditorInDiffMode() {
+                await monacoInstance.switchToNormalMode()
+            }
+            await monacoInstance.createNewModel(
+                url: activeTextEditor.url.absoluteString, value: activeTextEditor.content)
+        }
+        refreshLanguageServices()
+    }
+
+    private func disconnectLanguageServices() {
+        languageServiceTask?.cancel()
+        languageServiceKey = nil
+        monacoInstance?.disconnectLanguageService()
+    }
+
+    @MainActor
+    func refreshLanguageServices() {
+        guard let activeTextEditor, let currentDirectoryURL = workSpaceStorage.currentDirectory._url
+        else {
+            return
+        }
+        guard !runeStoneEditorEnabled, languageServiceEnabled,
+            let configuration = LanguageService.configurationFor(url: activeTextEditor.url)
+        else {
+            disconnectLanguageServices()
+            return
+        }
+
+        let remote = currentDirectoryURL.scheme == "sftp"
+        let provider = workSpaceStorage.remoteLanguageServerProvider
+        if remote {
+            guard remoteClangdEnabled, configuration.serviceIdentifier == "clangd", provider != nil,
+                activeTextEditor.url.scheme == "sftp",
+                activeTextEditor.url.host == currentDirectoryURL.host,
+                activeTextEditor.url.port == currentDirectoryURL.port,
+                activeTextEditor.url.user == currentDirectoryURL.user
+            else {
+                disconnectLanguageServices()
+                return
+            }
+        } else {
+            guard currentDirectoryURL.isFileURL, activeTextEditor.url.isFileURL,
+                configuration.serviceIdentifier != "clangd" || localClangdEnabled
+            else {
+                disconnectLanguageServices()
+                return
             }
         }
 
-        guard let currentDirectoryURL = workSpaceStorage.currentDirectory._url else {
-            return
-        }
-        guard !runeStoneEditorEnabled && currentDirectoryURL.isFileURL && languageServiceEnabled
-        else {
-            monacoInstance.disconnectLanguageService()
-            return
-        }
-        if let languageServiceConfiguration = LanguageService.configurationFor(
-            url: activeTextEditor.url)
-        {
-            Task {
-                let isLanguageServiceConnected = await monacoInstance.isLanguageServiceConnected
-                if isLanguageServiceConnected
-                    && LanguageService.shared.candidateLanguageIdentifier
-                        == languageServiceConfiguration.languageIdentifier
-                {
-                    return
-                }
-                if isLanguageServiceConnected {
-                    monacoInstance.disconnectLanguageService()
-                    try? await Task.sleep(for: .seconds(5))
-                }
-                LanguageService.shared.candidateLanguageIdentifier =
-                    languageServiceConfiguration.languageIdentifier
+        let key =
+            "\(remote ? "ssh" : "local")|\(currentDirectoryURL.absoluteString)|\(configuration.serviceIdentifier)"
+        // Includes in-flight and failed starts: opening another C/header file must not start a
+        // second clangd or repeatedly notify that clangd is missing. Toggle the service to retry.
+        guard languageServiceKey != key else { return }
+        let previousKey = languageServiceKey
+        disconnectLanguageServices()
+        languageServiceKey = key
+        languageServiceTask = Task { @MainActor in
+            // The local app extension hosts one process; give its previous process time to exit.
+            if previousKey?.hasPrefix("local|") == true {
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            }
+            guard !Task.isCancelled, languageServiceKey == key else { return }
+            LanguageService.shared.candidateLanguageIdentifier =
+                remote ? "c" : configuration.languageIdentifier
+            if let provider, remote {
+                (monacoInstance as? MonacoImplementation)?.connectRemoteLanguageService(
+                    provider: provider, pwd: currentDirectoryURL)
+            } else {
                 monacoInstance.connectLanguageService(
-                    serverURL: URL(
-                        string: "ws://127.0.0.1:\(String(AppExtensionService.PORT))/websocket")!,
-                    serverArgs: languageServiceConfiguration.args,
+                    serverURL: URL(string: "ws://127.0.0.1:\(AppExtensionService.PORT)/websocket")!,
+                    serverArgs: configuration.args,
                     pwd: currentDirectoryURL,
-                    languageIdentifier: languageServiceConfiguration.languageIdentifier,
-                    documentSelector: languageServiceConfiguration.documentSelector,
-                    initializationOptions: languageServiceConfiguration.initializationOptions
-                )
+                    languageIdentifier: configuration.languageIdentifier,
+                    documentSelector: configuration.documentSelector,
+                    initializationOptions: configuration.initializationOptions)
             }
         }
     }
@@ -1016,6 +1055,8 @@ class MainApp: ObservableObject {
     /// Set the specified url as the root directory of the working space. The url can either be a local path or a remote path like sftp://xxxxx
     @MainActor
     func loadFolder(url: URL, resetEditorsAndTerminals: Bool = true) {
+        languageServiceTask?.cancel()
+        disconnectLanguageServices()
         if resetEditorsAndTerminals {
             self.closeAllEditors()
             self.terminalManager.resetAndSetNewRootDirectory(url: url)
@@ -1322,9 +1363,12 @@ extension MainApp: EditorImplementationDelegate {
     func editorImplementation(
         contentDidChangeForModelURL url: String, content: String, versionID: Int
     ) {
-        // TODO: This can be made more robust
-        activeTextEditor?.currentVersionId = versionID
-        activeTextEditor?.content = content
+        // LSP edits can update another open file, e.g. a rename or an inserted include.
+        guard let modelURL = URL(string: url),
+            let editor = textEditors.first(where: { $0.url == modelURL })
+        else { return }
+        editor.currentVersionId = versionID
+        editor.content = content
     }
 
     func editorImplementation(cursorPositionDidChange line: Int, column: Int) {
@@ -1344,7 +1388,44 @@ extension MainApp: EditorImplementationDelegate {
         }
     }
 
+    @MainActor
+    func editorImplementation(openLanguageServerURL url: URL) async -> Bool {
+        guard let root = workSpaceStorage.currentDirectory._url,
+            root.scheme == "sftp", url.scheme == "sftp",
+            root.host == url.host, root.port == url.port, root.user == url.user
+        else { return false }
+        do {
+            guard let editor = try await openFile(url: url) as? TextEditorInstance else {
+                return false
+            }
+            await monacoInstance.createNewModel(url: url.absoluteString, value: editor.content)
+            return true
+        } catch {
+            notificationManager.showErrorMessage(
+                "Unable to open language server target: %@", error.localizedDescription)
+            return false
+        }
+    }
+
+    func editorImplementation(languageServerError message: String) {
+        notificationManager.showWarningMessage("Remote C/C++: %@", message)
+    }
+
+    @MainActor
+    func editorImplementation(readLanguageServerURL url: URL) async -> String? {
+        guard let root = workSpaceStorage.currentDirectory._url,
+            root.scheme == "sftp", url.scheme == "sftp",
+            root.host == url.host, root.port == url.port, root.user == url.user
+        else { return nil }
+        if let editor = textEditors.first(where: { $0.url == url }) { return editor.content }
+        guard let data = try? await workSpaceStorage.contents(at: url) else { return nil }
+        return try? decodeStringData(data: data).0
+    }
+
     func editorImplementation(languageServerDidDisconnect languageIdentifier: String) {
+        // Missing remote clangd is retried explicitly by toggling the service, not in a loop.
+        guard workSpaceStorage.currentDirectory._url?.isFileURL == true else { return }
+        languageServiceKey = nil
         // Recovery strategy
         DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
             Task {
@@ -1360,9 +1441,7 @@ extension MainApp: EditorImplementationDelegate {
     func editorImplementation(markersDidUpdate markers: [MonacoEditorMarker]) {
         problems = [:]
         for marker in markers {
-            if let sanitisedURL = marker.resource.path.dropFirst().removingPercentEncoding,
-                let url = URL(string: sanitisedURL)
-            {
+            if let url = marker.resource.url {
                 if problems[url] != nil {
                     problems[url]!.append(marker)
                 } else {

@@ -58,7 +58,28 @@ class SFTPFileSystemProvider: NSObject {
     private var onRequestInteractiveKeyboard: ((String) async -> String)
     private var session: NMSSHSession!
     private let queue = DispatchQueue(label: "sftp.serial.queue")
+    private static let queueKey = DispatchSpecificKey<ObjectIdentifier>()
     private var jumpHostFSS: [SFTPFileSystemProvider] = []
+    private var languageServer: RemoteLanguageServer?
+
+    func makeLanguageServer(workspace: URL, onEvent: @escaping (String, String) -> Void)
+        -> RemoteLanguageServer
+    {
+        let server = RemoteLanguageServer(
+            session: session, queue: queue, workspace: workspace, onEvent: onEvent)
+        queue.async { [self] in
+            languageServer?.stopOnQueue()
+            languageServer = server
+        }
+        return server
+    }
+
+    func stopLanguageServer() {
+        queue.async { [self] in
+            languageServer?.stopOnQueue()
+            languageServer = nil
+        }
+    }
 
     init?(
         baseURL: URL, username: String, didDisconnect: @escaping (Error) -> Void,
@@ -69,6 +90,7 @@ class SFTPFileSystemProvider: NSObject {
         self.onTerminalData = onTerminalData
         self.onRequestInteractiveKeyboard = onRequestInteractiveKeyboard
         super.init()
+        queue.setSpecific(key: Self.queueKey, value: ObjectIdentifier(self))
 
         do {
             try configureSession(baseURL: baseURL, username: username)
@@ -79,6 +101,11 @@ class SFTPFileSystemProvider: NSObject {
     }
 
     deinit {
+        if DispatchQueue.getSpecific(key: Self.queueKey) == ObjectIdentifier(self) {
+            languageServer?.stopOnQueue()
+        } else {
+            queue.sync { languageServer?.stopOnQueue() }
+        }
         sockets.forEach { try? $0.closeSocket() }
         self._terminalServiceProvider?.disconnect()
         self.session.sftp.disconnect()

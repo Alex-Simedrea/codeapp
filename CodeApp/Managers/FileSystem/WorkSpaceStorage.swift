@@ -64,6 +64,10 @@ class WorkSpaceStorage: ObservableObject {
         currentScheme != nil ? fss[currentScheme!] : nil
     }
 
+    var remoteLanguageServerProvider: SFTPFileSystemProvider? {
+        fs as? SFTPFileSystemProvider
+    }
+
     init(url: URL) {
         let url = url.resolvingSymlinksInPath()
         let localFS = LocalFileSystemProvider()
@@ -211,11 +215,12 @@ class WorkSpaceStorage: ObservableObject {
                 }
 
                 guard let homePath,
-                    let hostName = host.host,
-                    let baseURL = URL(string: "sftp://\(hostName)/\(homePath)")
-                else {
-                    return
-                }
+                    var components = URLComponents(url: host, resolvingAgainstBaseURL: false)
+                else { return }
+                // Preserve the SSH authority/port and avoid //home paths: clangd returns
+                // canonical file URIs, which must match the editor's SFTP model URIs.
+                components.path = homePath.hasPrefix("/") ? homePath : "/\(homePath)"
+                guard let baseURL = components.url else { return }
                 self.updateDirectory(name: "SFTP", url: baseURL.absoluteString)
             }
         default:
@@ -225,6 +230,7 @@ class WorkSpaceStorage: ObservableObject {
     }
 
     func disconnect() {
+        remoteLanguageServerProvider?.stopLanguageServer()
         expandedCells.removeAll()
         directoryStorage.removeAll()
 

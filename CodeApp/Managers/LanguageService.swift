@@ -50,12 +50,14 @@ class LanguageService {
             languageIdentifier: "c",
             extensions: ["c"],
             args: ["clangd", "--background-index=false", "--log=info"],
+            documentSelector: ["c", "cpp"],
             initializationOptions: ["fallbackFlags": clangdFallbackFlags()]),
         Configuration(
             serviceIdentifier: "clangd",
             languageIdentifier: "cpp",
             extensions: ["h", "hh", "hpp", "hxx", "cc", "cpp", "cxx"],
             args: ["clangd", "--background-index=false", "--log=info"],
+            documentSelector: ["c", "cpp"],
             initializationOptions: ["fallbackFlags": clangdFallbackFlags()]),
     ]
 

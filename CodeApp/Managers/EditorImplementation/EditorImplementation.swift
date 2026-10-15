@@ -70,10 +70,6 @@ struct MonacoEditorMarker: Decodable, Identifiable {
     var resource: MonacoResource
 }
 
-struct MonacoResource: Decodable {
-    var path: String
-}
-
 protocol EditorImplementationDelegate: AnyObject {
     func didEnterFocus()
     func didFinishInitialising()
@@ -84,6 +80,9 @@ protocol EditorImplementationDelegate: AnyObject {
     func editorImplementation(cursorPositionDidChange line: Int, column: Int)
     func editorImplementation(onOpenURL url: String)
     func editorImplementation(languageServerDidDisconnect languageIdentifier: String)
+    func editorImplementation(openLanguageServerURL url: URL) async -> Bool
+    func editorImplementation(readLanguageServerURL url: URL) async -> String?
+    func editorImplementation(languageServerError message: String)
 
     // Monaco specfic methods
     func editorImplementation(markersDidUpdate markers: [MonacoEditorMarker])
