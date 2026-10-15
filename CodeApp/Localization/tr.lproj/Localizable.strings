@@ -8,7 +8,7 @@
 
 "Welcome Message" =
 "# Code App
-##### **v1.12.1 (Mart 2026)**
+##### **v1.12.3 (Eylül 2026)**
 #### Başlangıç
 [Yeni Dosya](https://thebaselab.com/code/newfile)
 [Dosya Aç](https://thebaselab.com/code/openfile)
@@ -22,7 +22,17 @@
 ";
 
 "Changelog.message" =
-"### 1.12.1 (Mart 2026)
+"
+### 1.12.3 (Eylül 2026)
+- Ayarlar'da Türkçe dil görünürlüğü düzeltildi
+- iOS 27 uyumluluğu iyileştirildi
+
+### 1.12.2 (Haziran 2026)
+- Git arayüzündeki bir hata düzeltildi.
+- Türkçe dil desteği
+- Katkısı için @iEmirRekt'e özel teşekkürler.
+
+### 1.12.1 (Mart 2026)
 - SSH dizinleriyle ilgili bir hata düzeltildi.
 
 ### 1.12.0 (Şubat 2026)
@@ -100,7 +110,7 @@
 
 ### 1.5.1 (Ekim 2023)
 - FTP uzaktan erişimiyle ilgili sorunları giderir.
-– "Port Yönlendirme" sekmesinin her zaman kompakt modda görüntülenmesine neden olan bir hata düzeltildi.
+– \"Port Yönlendirme\" sekmesinin her zaman kompakt modda görüntülenmesine neden olan bir hata düzeltildi.
 
 ### 1.5.0 (Ekim 2023)
 - SSH uzaktan bağlantısında port yönlendirme

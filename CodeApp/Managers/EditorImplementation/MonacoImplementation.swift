@@ -95,6 +95,29 @@ class MonacoImplementation: NSObject {
                 .appendingPathComponent("node_modules/@types"))
     }
 
+    private func applyIOS27FocusPatch() async {
+        let script = """
+            (() => {
+                const onFocusIn = () => {
+                    const el = document.activeElement;
+                    if (!(el instanceof HTMLTextAreaElement)) return;
+                    if (!el.classList.contains("inputarea")) return;
+
+                    el.focus({ preventScroll: true });
+                };
+
+                onFocusIn();
+                if (
+                    !(document.activeElement instanceof HTMLTextAreaElement) ||
+                    !document.activeElement.classList.contains("inputarea")
+                ) {
+                    document.addEventListener("focusin", onFocusIn, true);
+                }
+            })();
+            """
+        _ = try? await monacoWebView.evaluateJavaScriptAsync(script)
+    }
+
     private func configureTheme() async {
         if let dark = theme.dark {
             await setVSTheme(theme: dark)
@@ -246,6 +269,9 @@ extension MonacoImplementation: WKScriptMessageHandler {
         case "Editor Initialising":
             Task { @MainActor in
                 await setupEditor()
+                if #available(iOS 27.0, *) {
+                    await applyIOS27FocusPatch()
+                }
                 delegate?.didFinishInitialising()
             }
         case "Markers updated":
