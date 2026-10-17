@@ -49,3 +49,34 @@ and pressing Escape. All four must repeat without an accent menu. Hold a letter
 and a digit in insert and replace mode; verify repeated text. Also check visual
 selections, Shift/Caps Lock, Command shortcuts, Option input, the editor's Find
 field and a native text field. Repeat works with Vim disabled too.
+
+## Stock Go to File / native workspace
+
+Build the editor with `scripts/build-monaco.sh` (Node.js 20+ and npm are required).
+This replaces the downloaded/minified editor patch workflow with pinned sources
+in `scripts/monaco-editor`.
+
+```sh
+scripts/monaco-editor/node_modules/.bin/tsc --project scripts/monaco-editor/tsconfig.json --noEmit
+NODE_PATH=/tmp/codeapp-lsp-tools/node_modules node scripts/tests/quick-access-integration.cjs
+```
+
+The browser test drives VS Code's actual AnythingQuickAccessProvider in the
+existing palette. It checks local and SFTP URIs, native open callbacks, recent
+files, fuzzy matching, dirty-buffer reuse, absolute paths, line/column suffixes,
+cancellation and switching back to the command palette. The native bridge is
+simulated in this test; no SSH credentials are needed.
+
+The hosted simulator test
+`CodeUITests/testStockQuickAccessUsesNativeWorkspaceAndPreservesDirtyTabs`
+exercises the real MainApp/WorkSpaceStorage/WKWebView bridge, filesystem indexing,
+symlink-cycle avoidance, tab activation, unsaved edits and workspace invalidation.
+
+For a device check, open a local or SSH workspace, press Cmd+P and search for an
+unopened file. Accept it and verify that its native tab opens. Edit a file, switch
+away and select it again from Cmd+P; the dirty content and undo history must
+survive. Check recently opened files after closing a tab and after restarting
+with the same workspace. Try `filename:line:column`, paths with spaces and
+non-ASCII filenames, and cancel with Escape. Cmd+Shift+P, @ and : should retain
+their existing behavior. Disconnect/reconnect SSH or switch workspaces during a
+search and verify old results cannot open in the new workspace.

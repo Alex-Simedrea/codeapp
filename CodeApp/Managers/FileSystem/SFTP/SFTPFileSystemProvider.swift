@@ -278,6 +278,33 @@ extension SFTPFileSystemProvider: NMSSHSocketDelegate {
 }
 
 extension SFTPFileSystemProvider: FileSystemProvider {
+    func quickAccessEntries(at url: URL) async throws -> [WorkspaceFileEntry] {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                guard let files = self.session.sftp.contentsOfDirectory(atPath: url.path) else {
+                    continuation.resume(throwing: SFTPError.FailedToPerformOperation)
+                    return
+                }
+                continuation.resume(
+                    returning: files.filter { $0.filename != "." && $0.filename != ".." }.map {
+                        let file = $0
+                        let resolvedDirectory: Bool = {
+                            guard file.isSymbolicLink,
+                                let path = self.session.sftp.resolveSymbolicLink(
+                                    atPath: url.appendingPathComponent(file.filename).path),
+                                let info = self.session.sftp.infoForFile(atPath: path)
+                            else { return file.isDirectory }
+                            return info.isDirectory
+                        }()
+                        return WorkspaceFileEntry(
+                            url: url.appendingPathComponent(
+                                $0.filename, isDirectory: $0.isDirectory),
+                            isDirectory: resolvedDirectory, isSymbolicLink: $0.isSymbolicLink)
+                    })
+            }
+        }
+    }
+
     func contentsOfDirectory(at url: URL, completionHandler: @escaping ([URL]?, Error?) -> Void) {
         queue.async {
             let files = self.session.sftp.contentsOfDirectory(atPath: url.path)
@@ -421,6 +448,10 @@ extension SFTPFileSystemProvider: FileSystemProvider {
 
             completionHandler(
                 [
+                    .type: attributes.isSymbolicLink
+                        ? FileAttributeType.typeSymbolicLink
+                        : (attributes.isDirectory
+                            ? FileAttributeType.typeDirectory : FileAttributeType.typeRegular),
                     .modificationDate: attributes.modificationDate,
                     .size: attributes.fileSize,
                 ], nil)

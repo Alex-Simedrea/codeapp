@@ -50,6 +50,15 @@ Both app targets apply the tracked Monaco integration while building, including 
 
 Development checks are documented in [scripts/tests/README.md](scripts/tests/README.md).
 
+## Editor Quick Access
+
+Cmd+P uses VS Code's stock Go to File provider in the existing editor palette.
+It searches the current local or SSH workspace and includes native open tabs and
+recent files. Selecting a result opens or activates its app tab, preserving
+unsaved edits. File names support fuzzy matching and `filename:line:column`.
+Cmd+Shift+P continues to show commands; `@` and `:` retain symbol and line
+navigation. Filename indexes are cached; SFTP uses the existing connection.
+
 ## Building the project
 
 1. `git clone https://github.com/thebaselab/codeapp`
@@ -57,6 +66,10 @@ Development checks are documented in [scripts/tests/README.md](scripts/tests/REA
 3. Open Code.xcodeproj
 4. Switch to CodeUI target if you wish to run the app on a simulator
 5. Click build
+
+The embedded Monaco editor is built from the pinned sources in
+`scripts/monaco-editor`. Its first build requires Node.js 20+ and npm; subsequent
+builds reuse cached output when the sources are unchanged.
 
 The source code of the built-in languages are hosted on these repositories.
 | Language | Repository |

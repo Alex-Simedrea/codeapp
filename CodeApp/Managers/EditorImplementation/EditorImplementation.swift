@@ -83,6 +83,8 @@ protocol EditorImplementationDelegate: AnyObject {
     func editorImplementation(openLanguageServerURL url: URL) async -> Bool
     func editorImplementation(readLanguageServerURL url: URL) async -> String?
     func editorImplementation(languageServerError message: String)
+    @MainActor
+    func editorImplementation(workspaceRequest: [String: Any]) async throws -> [String: Any]
 
     // Monaco specfic methods
     func editorImplementation(markersDidUpdate markers: [MonacoEditorMarker])

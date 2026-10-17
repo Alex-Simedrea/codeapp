@@ -187,6 +187,9 @@ class MainApp: ObservableObject {
     @Published var isShowingCompilerLanguage = false
     @Published var activeEditor: EditorInstance? = nil {
         didSet {
+            if let url = (activeEditor as? EditorInstanceWithURL)?.url {
+                rememberQuickAccessFile(url)
+            }
             if let activeEditor = activeEditor as? EditorInstanceWithURL {
                 workSpaceStorage.cellState.highlightedCells = Set([activeEditor.url.absoluteString])
             } else {
@@ -237,6 +240,13 @@ class MainApp: ObservableObject {
     private var workSpaceCancellable: AnyCancellable? = nil
     private var cancellables = Set<AnyCancellable>()
     private var isConfiguringOpenEditors = false
+    private var quickAccessGeneration = UUID().uuidString
+    private var quickAccessIndex: Task<[String], Error>?
+    private var quickAccessIndexTime = Date.distantPast
+    private var quickAccessIndexExclusions: [String] = []
+    private var quickAccessIndexRoot: String?
+    private var quickAccessIndexComplete = false
+    private var quickAccessIndexID = UUID()
 
     @AppStorage("alwaysOpenInNewTab") var alwaysOpenInNewTab: Bool = false
     @AppStorage("explorer.confirmBeforeDelete") var confirmBeforeDelete = false
@@ -288,6 +298,7 @@ class MainApp: ObservableObject {
         // TODO: Support deleted files detection for remote files
         workSpaceStorage.onDirectoryChange { [weak self] url in
             DispatchQueue.main.async {
+                self?.invalidateQuickAccessIndex()
                 for editor in self?.textEditors ?? [] {
                     if editor.url.absoluteString.contains(url) {
                         if !FileManager.default.fileExists(atPath: editor.url.path) {
@@ -1055,6 +1066,8 @@ class MainApp: ObservableObject {
     /// Set the specified url as the root directory of the working space. The url can either be a local path or a remote path like sftp://xxxxx
     @MainActor
     func loadFolder(url: URL, resetEditorsAndTerminals: Bool = true) {
+        quickAccessGeneration = UUID().uuidString
+        invalidateQuickAccessIndex()
         languageServiceTask?.cancel()
         disconnectLanguageServices()
         if resetEditorsAndTerminals {
@@ -1180,7 +1193,16 @@ class MainApp: ObservableObject {
 
     @MainActor
     @discardableResult
-    func openFile(url: URL, alwaysInNewTab: Bool = false) async throws -> EditorInstance {
+    func openFile(url: URL, alwaysInNewTab: Bool = false, workspaceContext: String? = nil)
+        async throws -> EditorInstance
+    {
+        func checkContext() throws {
+            try Task.checkCancellation()
+            if let workspaceContext, workspaceContext != quickAccessContext {
+                throw CancellationError()
+            }
+        }
+        try checkContext()
         guard stateManager.isMonacoEditorInitialized else {
             if urlQueue.contains(url) {
                 urlQueue.removeAll { $0 == url }
@@ -1200,12 +1222,16 @@ class MainApp: ObservableObject {
         // TODO: Avoid reading the same file twice
         do {
             let textEditor = try await createTextEditorFromURL(url: url)
+            try checkContext()
             appendAndFocusNewEditor(editor: textEditor, alwaysInNewTab: alwaysInNewTab)
             return textEditor
+        } catch is CancellationError {
+            throw CancellationError()
         } catch NSFileProviderError.serverUnreachable {
             throw NSFileProviderError(.serverUnreachable)
         } catch {
             // Otherwise, fallback to using extensions
+            try checkContext()
             let editor = try createExtensionEditorFromURL(url: url)
             appendAndFocusNewEditor(editor: editor, alwaysInNewTab: alwaysInNewTab)
             return editor
@@ -1459,4 +1485,202 @@ extension MainApp: EditorImplementationDelegate {
             userInfo: userInfo)
     }
 
+}
+
+extension MainApp {
+    private static let quickAccessHistoryKey = "editor.quickAccess.history"
+    private var quickAccessContext: String {
+        quickAccessGeneration + "|" + workSpaceStorage.currentDirectory.url
+    }
+
+    private var quickAccessHistory: [String] {
+        let histories =
+            UserDefaults.standard.dictionary(forKey: Self.quickAccessHistoryKey)
+            as? [String: [String]] ?? [:]
+        return histories[workSpaceStorage.currentDirectory.url] ?? []
+    }
+
+    private func rememberQuickAccessFile(_ url: URL) {
+        var histories =
+            UserDefaults.standard.dictionary(forKey: Self.quickAccessHistoryKey)
+            as? [String: [String]] ?? [:]
+        let key = workSpaceStorage.currentDirectory.url
+        histories[key] = Array(
+            ([url.absoluteString] + (histories[key] ?? []).filter { $0 != url.absoluteString })
+                .prefix(200))
+        UserDefaults.standard.set(histories, forKey: Self.quickAccessHistoryKey)
+    }
+
+    private func invalidateQuickAccessIndex() {
+        quickAccessIndex?.cancel()
+        quickAccessIndex = nil
+        quickAccessIndexID = UUID()
+        quickAccessIndexComplete = false
+        quickAccessIndexTime = .distantPast
+    }
+
+    @MainActor
+    private func quickAccessSnapshot() -> [String: Any] {
+        var result: [String: Any] = [
+            "workspace": workSpaceStorage.currentDirectory.url,
+            "generation": quickAccessContext,
+            "editors": editorsWithURL.map { editor -> [String: Any] in
+                [
+                    "uri": editor.url.absoluteString,
+                    "dirty": (editor as? TextEditorInstance)?.isSaved == false,
+                ]
+            },
+            "history": quickAccessHistory,
+        ]
+        if let active = activeEditor as? EditorInstanceWithURL {
+            result["active"] = active.url.absoluteString
+        }
+        return result
+    }
+
+    @MainActor
+    func editorImplementation(workspaceRequest request: [String: Any]) async throws -> [String: Any]
+    {
+        guard let action = request["action"] as? String else {
+            throw WorkSpaceStorage.FSError.Unknown
+        }
+        if action == "snapshot" { return quickAccessSnapshot() }
+        guard let root = workSpaceStorage.currentDirectory._url,
+            request["generation"] as? String == quickAccessContext
+        else { throw CancellationError() }
+        let generation = quickAccessContext
+        func checkContext() throws {
+            try Task.checkCancellation()
+            guard generation == quickAccessContext,
+                root == workSpaceStorage.currentDirectory._url
+            else {
+                throw CancellationError()
+            }
+        }
+        if action == "home" {
+            if root.isFileURL { return ["uri": getRootDirectory().absoluteString] }
+            var components = URLComponents(url: root, resolvingAgainstBaseURL: false)
+            if let provider = workSpaceStorage.remoteLanguageServerProvider,
+                let path = await provider.resolveSymbolicLink(atPath: ".")
+            {
+                try checkContext()
+                components?.path = path.hasPrefix("/") ? path : "/" + path
+            }
+            return ["uri": components?.url?.absoluteString ?? root.absoluteString]
+        }
+        if action == "files" {
+            let exclusions = (request["excludedDirectories"] as? [String] ?? []).sorted()
+            if quickAccessIndex == nil || quickAccessIndexRoot != root.absoluteString
+                || (quickAccessIndexComplete && Date().timeIntervalSince(quickAccessIndexTime) > 30)
+                || exclusions != quickAccessIndexExclusions
+            {
+                invalidateQuickAccessIndex()
+                quickAccessIndexTime = Date()
+                quickAccessIndexRoot = root.absoluteString
+                quickAccessIndexExclusions = exclusions
+                let storage = workSpaceStorage
+                let excluded = Set(exclusions + [".git"])
+                quickAccessIndex = Task { @MainActor in
+                    var directories = [root]
+                    var cursor = 0
+                    var files: [String] = []
+                    while cursor < directories.count {
+                        try Task.checkCancellation()
+                        guard storage.currentDirectory._url == root else {
+                            throw CancellationError()
+                        }
+                        let directory = directories[cursor]
+                        cursor += 1
+                        let entries: [WorkspaceFileEntry]
+                        do { entries = try await storage.quickAccessEntries(at: directory) } catch {
+                            if directory == root { throw error }
+                            // Unreadable subdirectories do not hide the rest of the workspace.
+                            continue
+                        }
+                        for entry in entries where !entry.isDirectory || !entry.isSymbolicLink {
+                            if entry.isDirectory {
+                                if !excluded.contains(entry.url.lastPathComponent) {
+                                    directories.append(entry.url)
+                                }
+                            } else {
+                                files.append(entry.url.absoluteString)
+                            }
+                        }
+                        await Task.yield()
+                    }
+                    try Task.checkCancellation()
+                    return files
+                }
+            }
+            let indexID = quickAccessIndexID
+            do {
+                let files = try await quickAccessIndex!.value
+                try checkContext()
+                guard indexID == quickAccessIndexID else { throw CancellationError() }
+                quickAccessIndexComplete = true
+                return ["files": files]
+            } catch {
+                if generation == quickAccessContext && indexID == quickAccessIndexID
+                    && !Task.isCancelled
+                {
+                    invalidateQuickAccessIndex()
+                    if !(error is CancellationError) {
+                        notificationManager.showErrorMessage(
+                            "Unable to search workspace: %@", error.localizedDescription)
+                    }
+                }
+                throw error
+            }
+        }
+        guard let value = request["uri"] as? String, let uri = URL(string: value),
+            uri.scheme == root.scheme, uri.host == root.host, uri.port == root.port,
+            uri.user == root.user,
+            uri.query == nil, uri.fragment == nil
+        else { throw WorkSpaceStorage.FSError.InvalidHost }
+        switch action {
+        case "open":
+            do {
+                let opened = try await openFile(
+                    url: uri, alwaysInNewTab: true, workspaceContext: generation)
+                try checkContext()
+                guard activeEditor?.id == opened.id else { throw CancellationError() }
+                await updateActiveEditor()
+                if request["preserveFocus"] as? Bool != true { focusPane(.editor) }
+                return ["state": quickAccessSnapshot()]
+            } catch {
+                if !(error is CancellationError) {
+                    notificationManager.showErrorMessage(error.localizedDescription)
+                }
+                throw error
+            }
+        case "read":
+            if let existing = textEditors.first(where: { $0.url == uri }) {
+                return ["text": existing.content]
+            }
+            let data = try await workSpaceStorage.contents(at: uri)
+            try checkContext()
+            return ["text": try decodeStringData(data: data).0]
+        case "stat":
+            let attributes = try await workSpaceStorage.attributesOfItem(at: uri)
+            try checkContext()
+            let type = attributes[.type] as? FileAttributeType
+            return [
+                "type": type == .typeDirectory
+                    ? "directory" : (type == .typeSymbolicLink ? "symlink" : "file"),
+                "size": attributes[.size] as? NSNumber ?? 0,
+                "mtime": ((attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)
+                    * 1000,
+            ]
+        case "forget":
+            var histories =
+                UserDefaults.standard.dictionary(forKey: Self.quickAccessHistoryKey)
+                as? [String: [String]] ?? [:]
+            histories[workSpaceStorage.currentDirectory.url] = quickAccessHistory.filter {
+                $0 != value
+            }
+            UserDefaults.standard.set(histories, forKey: Self.quickAccessHistoryKey)
+            return [:]
+        default: throw WorkSpaceStorage.FSError.NotImplemented
+        }
+    }
 }

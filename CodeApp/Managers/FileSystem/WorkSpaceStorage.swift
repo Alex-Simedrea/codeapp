@@ -407,6 +407,13 @@ class WorkSpaceStorage: ObservableObject {
 }
 
 extension WorkSpaceStorage {
+    func quickAccessEntries(at url: URL) async throws -> [WorkspaceFileEntry] {
+        guard let scheme = url.scheme, let provider = fss[scheme] else {
+            throw FSError.SchemeNotRegistered
+        }
+        return try await provider.quickAccessEntries(at: url)
+    }
+
     struct FileItemRepresentable: Identifiable, Hashable {
         var id: String {
             self.url

@@ -52,6 +52,7 @@ class MonacoImplementation: NSObject {
     private var monacoWebView = WebViewBase()
     private var remoteLanguageServer: RemoteLanguageServer?
     private var remoteLanguageServerID: String?
+    private var workspaceRequests: [String: Task<Void, Never>] = [:]
     var options: EditorOptions {
         didSet {
             Task { await configureCustomOptions() }
@@ -242,6 +243,32 @@ extension MonacoImplementation: WKScriptMessageHandler {
         }
 
         switch event {
+        case "Workspace":
+            guard let id = result["id"] as? String, let action = result["action"] as? String else {
+                return
+            }
+            if action == "cancel" {
+                workspaceRequests.removeValue(forKey: id)?.cancel()
+                return
+            }
+            workspaceRequests[id] = Task { @MainActor [weak self] in
+                guard let self else { return }
+                defer { self.workspaceRequests.removeValue(forKey: id) }
+                var value: [String: Any] = [:]
+                var failure: String? = nil
+                do {
+                    value =
+                        try await self.delegate?.editorImplementation(workspaceRequest: result)
+                        ?? [:]
+                } catch {
+                    failure = error is CancellationError ? "Canceled" : error.localizedDescription
+                }
+                guard !Task.isCancelled else { return }
+                self.monacoWebView.callAsyncJavaScript(
+                    "window.codeAppWorkspace.receive(id, result, error)",
+                    arguments: ["id": id, "result": value, "error": failure as Any? ?? NSNull()],
+                    in: nil, in: .page, completionHandler: nil)
+            }
         case "Editor Keyboard Focus":
             monacoWebView.repeatableEditorKeysEnabled = result["focused"] as? Bool ?? false
         case "Remote LSP":

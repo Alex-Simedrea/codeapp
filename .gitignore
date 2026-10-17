@@ -25,3 +25,8 @@ Pods/
 
 # scan temporary files
 **/fastlane/test_output
+
+# Rebuildable Monaco editor
+scripts/monaco-editor/node_modules/
+scripts/monaco-editor/monaco-textmate.bundle/
+scripts/monaco-editor/*.tsbuildinfo

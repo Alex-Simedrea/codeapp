@@ -19,6 +19,103 @@ final class CodeUITests: XCTestCase {
     }
 
     @MainActor
+    func testStockQuickAccessUsesNativeWorkspaceAndPreservesDirtyTabs() async throws {
+        let root = getRootDirectory().appendingPathComponent(
+            "quick-access-" + UUID().uuidString, isDirectory: true)
+        let subdirectory = root.appendingPathComponent("src", isDirectory: true)
+        try FileManager.default.createDirectory(at: subdirectory, withIntermediateDirectories: true)
+        let first = root.appendingPathComponent("first.txt")
+        let second = subdirectory.appendingPathComponent("second.txt")
+        try "original".write(to: first, atomically: true, encoding: .utf8)
+        try Array(repeating: "abcdef", count: 30).joined(separator: "\n").write(
+            to: second, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("loop"), withDestinationURL: root)
+        let app = MainApp()
+        app.workSpaceStorage.updateDirectory(name: "Quick Access Test", url: root.absoluteString)
+        app.setUpEditorInstance()
+        let web = try XCTUnwrap(app.monacoInstance.view as? WebViewBase)
+        let scene = try XCTUnwrap(
+            UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIViewController()
+        window.frame = CGRect(x: 0, y: 0, width: 800, height: 600)
+        web.frame = window.bounds
+        window.rootViewController!.view.addSubview(web)
+        window.makeKeyAndVisible()
+        defer {
+            web.configuration.userContentController.removeScriptMessageHandler(
+                forName: "toggleMessageHandler")
+            window.isHidden = true
+            try? FileManager.default.removeItem(at: root)
+        }
+        func waitFor(_ expression: String) async throws {
+            for _ in 0..<300 {
+                if (try? await web.evaluateJavaScriptAsync(expression)) as? Bool == true { return }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            XCTFail("Quick Access did not reach expected state: \(expression)")
+            throw NSError(domain: "QuickAccessTimeout", code: 1)
+        }
+        for _ in 0..<300 {
+            if app.stateManager.isMonacoEditorInitialized { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertTrue(app.stateManager.isMonacoEditorInitialized)
+        let snapshot = try await app.editorImplementation(workspaceRequest: ["action": "snapshot"])
+        let generation = try XCTUnwrap(snapshot["generation"] as? String)
+        let indexed = try await app.editorImplementation(workspaceRequest: [
+            "action": "files", "generation": generation,
+        ])
+        XCTAssertEqual(
+            Set(indexed["files"] as? [String] ?? []),
+            Set([first.absoluteString, second.absoluteString]))
+        try await app.openFile(url: first, alwaysInNewTab: true)
+        try await waitFor("editor.getModel()?.uri.path.endsWith('/first.txt') === true")
+        try await web.evaluateJavaScriptAsync(
+            "editor.setPosition({lineNumber: 1, column: 1}); editor.trigger('test', 'type', {text: 'unsaved '})"
+        )
+        for _ in 0..<100 {
+            if app.activeTextEditor?.content == "unsaved original" { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertEqual(app.activeTextEditor?.content, "unsaved original")
+        func choose(_ query: String, expectedFile: String) async throws {
+            try await web.callAsyncJavaScript(
+                "window.codeAppWorkspace.show()", arguments: [:], in: nil, in: .page)
+            try await waitFor(
+                "document.querySelector('.quick-input-widget .monaco-inputbox input') !== null")
+            try await web.callAsyncJavaScript(
+                "const input = document.querySelector('.quick-input-widget .monaco-inputbox input'); input.value = query; input.dispatchEvent(new Event('input', {bubbles: true}));",
+                arguments: ["query": query], in: nil, in: .page)
+            try await waitFor(
+                "document.querySelector('.quick-input-widget .monaco-list-row.focused')?.textContent.includes('\(expectedFile)') === true"
+            )
+            try await web.evaluateJavaScriptAsync(
+                "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true}))"
+            )
+            try await waitFor("editor.getModel()?.uri.path.endsWith('/\(expectedFile)') === true")
+        }
+        try await choose("second.txt:12:3", expectedFile: "second.txt")
+        try await waitFor(
+            "editor.getPosition().lineNumber === 12 && editor.getPosition().column === 3")
+        try await choose("first.txt", expectedFile: "first.txt")
+        XCTAssertEqual(app.activeTextEditor?.content, "unsaved original")
+        XCTAssertEqual(app.editorsWithURL.filter { $0.url == first }.count, 1)
+        XCTAssertEqual(try String(contentsOf: first), "original")
+        let updated = try await app.editorImplementation(workspaceRequest: ["action": "snapshot"])
+        XCTAssertTrue((updated["history"] as? [String] ?? []).contains(second.absoluteString))
+        app.workSpaceStorage.updateDirectory(
+            name: "Different workspace", url: getRootDirectory().absoluteString)
+        do {
+            _ = try await app.editorImplementation(workspaceRequest: [
+                "action": "files", "generation": generation,
+            ])
+            XCTFail("An old workspace request must be rejected")
+        } catch is CancellationError {}
+    }
+
+    @MainActor
     func testMonacoHardwareKeyRepeatRoutesTypingAndVimCommands() async throws {
         var options = EditorOptions()
         options.vimEnabled = true
